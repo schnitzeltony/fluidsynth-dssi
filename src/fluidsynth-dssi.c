@@ -461,7 +461,8 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
                                            instance->soundfont->programs[0].Bank,
                                            instance->soundfont->programs[0].Program);
             }
-            return dssi_configure_message("soundfont '%s' loaded", value);
+	    /* dssi.h says return NULL for success, not an informational string */
+            return NULL;
         } else {
             return dssi_configure_message("error: could not load soundfont '%s'", value);
         }
@@ -485,7 +486,8 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
 
         fsd_synth.gain = new_gain;
         
-        return dssi_configure_message("gain set to %f", new_gain);
+	/* dssi.h says return NULL for success, not an informational string */
+	return NULL;
     }
 
     // -FIX- implement setting synth.polyphony
