@@ -22,11 +22,11 @@ PLUGIN_CFLAGS = -Wall -I. -I../dssi -I$(FLUID_INCLUDE) -I$(FLUID_SRC) $(OPTIMIZA
 PLUGIN_LDFLAGS = -nostartfiles -shared
 PLUGIN_LDLIBS = -lfluidsynth
 
-GUI_CFLAGS = -Wall -O2 -I../dssi $(shell gtk-config --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
-GUI_LDFLAGS = $(shell gtk-config --libs) $(shell pkg-config liblo --libs) -lfluidsynth
+#GUI_CFLAGS = -Wall -O2 -I../dssi $(shell gtk-config --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
+#GUI_LDFLAGS = $(shell gtk-config --libs) $(shell pkg-config liblo --libs) -lfluidsynth
 # To use GTK+ 2.x:
-#GUI_CFLAGS = -Wall -O2 -I../dssi $(shell pkg-config gtk+-2.0 --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
-#GUI_LDFLAGS = $(shell pkg-config gtk+-2.0 --libs) $(shell pkg-config liblo --libs) -lfluidsynth
+GUI_CFLAGS = -Wall -O2 -I../dssi $(shell pkg-config gtk+-2.0 --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
+GUI_LDFLAGS = $(shell pkg-config gtk+-2.0 --libs) $(shell pkg-config liblo --libs) -lfluidsynth
 
 TARGETS	=	fluidsynth-dssi.so FluidSynth-DSSI_gtk
 
