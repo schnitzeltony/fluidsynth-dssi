@@ -16,7 +16,7 @@ PREFIX ?= /usr/local
 
 # 3. Adjust anything here as needed:
 
-OPTIMIZATION_CFLAGS = -O2 -s -fomit-frame-pointer -funroll-loops -ffast-math -finline-functions -finline-limit=5000 -minline-all-stringops -Winline
+OPTIMIZATION_CFLAGS = -O2 -s -fomit-frame-pointer -funroll-loops -ffast-math -finline-functions -Winline
 
 PLUGIN_CFLAGS = -Wall -I. -I../dssi -I$(FLUID_INCLUDE) -I$(FLUID_SRC) $(OPTIMIZATION_CFLAGS)
 PLUGIN_LDFLAGS = -nostartfiles -shared
