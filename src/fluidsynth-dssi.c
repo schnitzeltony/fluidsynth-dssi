@@ -33,6 +33,11 @@
 #include <stdarg.h>
 #include <pthread.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <ladspa.h>
 #include <dssi.h>
 
@@ -400,6 +405,61 @@ fsd_cleanup(LADSPA_Handle handle)
     free(instance);
 }
 
+#define DEFAULT_SF2PATH "/usr/local/share/sf2:/usr/share/sf2"
+
+static char *
+locate_soundfont(const char *origpath)
+{
+    char *sf2path = getenv("SF2_PATH");
+    char *path, *origPath, *element, *eltpath;
+    const char *filename;
+
+    filename = strrchr(origpath, '/');
+
+    if (filename) ++filename;
+    else filename = origpath;
+    if (!*filename) return NULL;
+
+    if (sf2path) path = strdup(sf2path);
+    else {
+	char *home = getenv("HOME");
+	if (!home) path = strdup(DEFAULT_SF2PATH);
+	else {
+	    path = (char *)malloc(strlen(DEFAULT_SF2PATH) + strlen(home) + 6);
+	    sprintf(path, "%s/sf2:%s", home, DEFAULT_SF2PATH);
+	}
+    }
+
+    origPath = path;
+
+    while ((element = strtok(path, ":")) != 0) {
+
+	int testfd;
+	path = 0;
+
+	if (element[0] != '/') {
+	    fprintf(stderr, "fluidsynth-dssi: Ignoring relative element %s in path\n", element);
+	    continue;
+	}
+
+	eltpath = (char *)malloc(strlen(element) + strlen(filename) + 2);
+	sprintf(eltpath, "%s/%s", element, filename);
+
+	testfd = open(eltpath, O_RDONLY);
+	if (testfd >= 0) {
+	    close(testfd);
+	    free(origPath);
+	    return eltpath;
+	}
+
+	free(eltpath);
+    }
+
+    free(origPath);
+    return NULL;
+}
+
+    
 /* ---- DSSI interface ---- */
 
 /*
@@ -464,6 +524,20 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
 	    /* dssi.h says return NULL for success, not an informational string */
             return NULL;
         } else {
+	    char *lookup = locate_soundfont(value);
+	    if (lookup && (strcmp(lookup, value) != 0)) {
+		char *rv = fsd_configure(handle, key, lookup);
+		if (rv == NULL) {
+		    rv = dssi_configure_message
+			("warning: soundfont '%s' not found: loading '%s' instead",
+			 value, lookup);
+		    free(lookup);
+		    return rv;
+		}
+	    }
+	    if (lookup) {
+		free(lookup);
+	    }
             return dssi_configure_message("error: could not load soundfont '%s'", value);
         }
 
