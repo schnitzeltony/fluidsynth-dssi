@@ -22,7 +22,7 @@ PLUGIN_CFLAGS = -Wall -I. -I../dssi -I$(FLUID_INCLUDE) -I$(FLUID_SRC) $(OPTIMIZA
 PLUGIN_LDFLAGS = -nostartfiles -shared
 PLUGIN_LDLIBS = -lfluidsynth
 
-GUI_CFLAGS = -Wall -O2 $(shell gtk-config --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
+GUI_CFLAGS = -Wall -O2 -I../dssi $(shell gtk-config --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
 GUI_LDFLAGS = $(shell gtk-config --libs) $(shell pkg-config liblo --libs) -lfluidsynth
 
 TARGETS	=	fluidsynth-dssi.so FluidSynth-DSSI_gtk
