@@ -104,7 +104,7 @@ osc_build_path(char *base_path, char *method)
         DEBUG_DSSI("fsd-gui: out of memory!\n");
         exit(1);
     }
-    return strdup(buffer);
+    return full_path;
 }
 
 static void
