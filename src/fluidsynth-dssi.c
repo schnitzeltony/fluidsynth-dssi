@@ -36,8 +36,8 @@
 #include <ladspa.h>
 #include <dssi.h>
 
-#if DSSI_VERSION_MINOR < 3
-#error  This code requires DSSI version 0.3 or greater support!
+#if DSSI_VERSION_MINOR < 4
+#error  This code requires DSSI version 0.4 or greater support!
 #endif
 
 #ifndef WITH_FLOAT
@@ -498,10 +498,6 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
  *
  * implements DSSI (*get_program)()
  */
-// -FIX- get_program():
-#define DO_GET_PROGRAM_THE_THIRD_WAY 1
-#ifdef DO_GET_PROGRAM_THE_THIRD_WAY
-// this is actually the first way, but it's compatible with the third way:
 const DSSI_Program_Descriptor *
 fsd_get_program(LADSPA_Handle handle, unsigned long index)
 {
@@ -515,26 +511,6 @@ fsd_get_program(LADSPA_Handle handle, unsigned long index)
 
     return &instance->soundfont->programs[index];
 }
-#else /* second way: */
-int
-fsd_get_program(LADSPA_Handle handle, unsigned long index,
-                DSSI_Program_Descriptor *descriptor)
-{
-    fsd_instance_t *instance = (fsd_instance_t *)handle;
-
-    DEBUG_DSSI("fsd %d: fsd_get_program called with %lu\n", instance->channel, index);
-
-    if (!instance->soundfont || index >= instance->soundfont->program_count) {
-        return 0;
-    }
-
-    if (descriptor) {
-        *descriptor = instance->soundfont->programs[index];
-        if (descriptor->Name) descriptor->Name = strdup(descriptor->Name);
-    }
-    return 1;
-}
-#endif
 
 /*
  * fsd_select_program

@@ -143,7 +143,10 @@ osc_action_handler(const char *path, const char *types, lo_arg **argv,
     if (!strcmp(user_data, "show")) {
 
         /* DEBUG_DSSI("fsd-gui osc_action_handler: received 'show' message\n"); */
-        gtk_widget_show(main_window);
+        if (!GTK_WIDGET_MAPPED(main_window))
+            gtk_widget_show(main_window);
+        else
+            gdk_window_raise(main_window->window);
 
     } else if (!strcmp(user_data, "hide")) {
 

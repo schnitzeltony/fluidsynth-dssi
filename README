@@ -3,46 +3,81 @@
                     A software synthesizer plugin  for the
                         Disposable Soft Synth Interface
 
-NOTE
-====
-This is an ALPHA snapshot.  Please do not redistribute.
-
 Introduction
 ============
-This package is a !FIX! implementation of a FluidSynth DSSI plugin,
-capable of sharing in-memory soundfont data between multiple plugin
-instances.
+The files in this directory are an example implementation of the
+FluidSynth soundfont-playing software synthesizer as a DSSI plugin.
+It makes use of DSSI's run_multiple_synths() interface to allow
+sharing of resources between multiple plugin instances -- soundfont
+data is shared between instances, and FluidSynth's usual voice
+allocation methods are applied across multiple instances as if each
+were a FluidSynth channel.
+
+FluidSynth-DSSI uses the FluidSynth library for all soundfont
+handling and synthesis functions.  However, because of the
+architecture differences between DSSI and FluidSynth, this could not
+be done using only the canonical API functions.  As a result, the
+FluidSynth source code is needed during FluidSynth-DSSI's
+compilation to provide access to the non-API library functions.
+
+FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2004
+under the GNU General Public License, version 2 or later.  See the
+enclosed file COPYING for details.
+
+FluidSynth itself is copyright (c)2003 Peter Hanappe and others,
+also under the GNU General Public License.
 
 Requirements
 ============
 You need to have the following installed:
 
-   liblo 0.5 or 0.6
-   fluidsynth 1.0.3 (including libfluidsynth)
-   DSSI, ALSA, LADSPA, and JACK
+   - liblo 0.5 or 0.6
+   - fluidsynth 1.0.3 (including libfluidsynth)
+   - LADSPA
+   - a DSSI-capable host, such as Rosegarden or the example host
+       included with this package.
 
 You must also have the fluidsynth 1.0.3 source code unpacked
 somewhere accessible.
 
 Installation
 ============
-Edit the Makefile, then do 'make'.  There is no 'make install' yet.
+Edit the Makefile, then do 'make' and 'make install'.  The following
+files are installed:
+
+    $(PREFIX)/lib/dssi/fluidsynth-dssi.so
+    $(PREFIX)/lib/dssi/fluidsynth-dssi/FluidSynth-DSSI_gtk
 
 Operation
 =========
-!FIX! There's a GUI now!
+Start your DSSI host and create an instance of the FluidSynth-DSSI
+plugin.  See the 'Example' section below for how to do this with the
+dssi_example_host.
 
-!FIX! available 'configure' messages:
+Initially, no soundfont will be loaded.  Use the 'Select Soundfont'
+button to select a soundfont. Each instance may use only one
+soundfont at a time, but when multiple instances use the same
+soundfont, it is only loaded once.
 
-   dssi_osc_send -C <osc-url> load /usr/share/sf2/soundfont.sf2
+The available soundfont presets will be displayed in the 'Preset'
+window.  Clicking on one will select that preset.
+
+Test notes may be generated using the 'Send Test Note' button.  You
+may select the pitch and velocity of the note using the 'Test Note'
+sliders.
+
+When you create more than one instance of the plugin, you should be
+able to tell their GUIs apart by unique window titles of each
+(provided your host correctly supplies each with the proper
+identifier.)
+
+It is possible to set the FluidSynth 'synth.gain' parameter using an
+OSC message to the plugin:
 
    dssi_osc_send -C <osc-url> gain 0.5
 
-!FIX! note that gain is global to all the fs instances, so you better
-send the same gain to each instance or thing may not be repeatable...
-
-Each instance may use only one soundfont at a time, but when
-multiple instances use the same soundfont, it is only loaded once.
+Note that synth.gain is a global parameter, so you'd best send the
+same gain the every instance if you want predictable results.
 
 Example
 =======
@@ -53,7 +88,8 @@ Example
 
     $ DSSI_PATH=/home/smbolton/src/fluidsynth-dssi-0.1.0 sudo ./dssi_example_host -16 fluidsynth-dssi.so
 
-3. Load a soundfont for each instance:
+3. Load a soundfont for each instance.  You may do this using the
+    GUI, or via the command line:
 
     $ for ee in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
     > do dssi_osc_send -C osc.udp://localhost:19383/dssi/fluidsynth-dssi/FluidSynth-DSSI/chan$ee \

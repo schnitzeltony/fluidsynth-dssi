@@ -1,6 +1,10 @@
-2004!FIX! v0.1.0
+20040715 DSSI v0.4 release
  * Added minimal GTK+ GUI.
- * Assume DSSI v0.3.
+ * Require DSSI v0.4.
+ * Incorporated into DSSI as example code.
+ * GUI: raise on 'show' if already visible.
+ * Makefile: added install, use of liblo pkgconfig, use of correct
+     FluidSynth includes.
 
 20040623 v0.0.2
  * Added support for per-instance soundfont selection.
