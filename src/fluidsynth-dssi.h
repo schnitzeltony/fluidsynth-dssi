@@ -62,6 +62,7 @@ typedef struct _fsd_synth_t fsd_synth_t;
 
 struct _fsd_instance_t {
     int             channel;
+    int             pending_preset_change;
     fsd_sfont_t    *soundfont;
     LADSPA_Data    *output_l;
     LADSPA_Data    *output_r;
@@ -75,8 +76,8 @@ struct _fsd_sfont_t {
     char                    *path;
     int                      sfont_id;
     int                      ref_count;
-    int                      program_count;
-    DSSI_Program_Descriptor *programs;
+    int                      preset_count;
+    DSSI_Program_Descriptor *presets;
 };
 
 struct _fsd_synth_t {
@@ -84,6 +85,7 @@ struct _fsd_synth_t {
     int               mutex_grab_failed;
     unsigned long     instance_count;
     unsigned long     burst_remains;
+    char             *project_directory;
     fluid_settings_t *fluid_settings;
     fluid_synth_t    *fluid_synth;
     fsd_sfont_t      *soundfonts;

@@ -1,5 +1,3 @@
-+ Fix the !FIX!es.
-
 - Fix the -FIX-es.
 
 ? Have the default bank for channel 9 (10) be 128 so it
@@ -8,3 +6,7 @@
 ? Detect if the plugin is NOT being run on a SSE-or-similar capable
     processor, or if the output buffers are already 16-byte aligned,
     and if so, skip the extra buffer copy?
+
+~ Would be nice to be able to set the max polyphony, but
+    libfluidsynth can't change it once new_fluid_synth() is called.
+

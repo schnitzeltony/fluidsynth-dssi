@@ -43,12 +43,15 @@
 #include <dssi.h>
 #include <lo/lo.h>
 
-#include <fcntl.h>  /* -FIX- just for lo_server_set_nonblocking() */
-
 #include "FluidSynth-DSSI_gtk.h"
+
+/* in locate_soundfont.c: */
+char *fsd_locate_soundfont_file(const char *origpath,
+                                const char *projectDirectory);
 
 /* ==== global variables ==== */
 
+char *     osc_self_url;
 lo_address osc_host_address;
 char *     osc_configure_path;
 char *     osc_control_path;
@@ -61,7 +64,8 @@ char *     osc_show_path;
 char *     osc_update_path;
 
 SFData *      soundfont_data = NULL;
-char          soundfont_filename[PATH_MAX];
+char *        soundfont_filename = NULL;
+char *        project_directory = NULL;
 unsigned long preset_count = 0;
 SFPreset **   presets_by_row = NULL;
 
@@ -72,6 +76,7 @@ unsigned char test_note_velocity = 96;
 GtkWidget *main_window;
 GtkWidget *soundfont_label;
 GtkWidget *preset_clist;
+GtkObject *gain_adj;
 GtkWidget *file_selection;
 GtkWidget *notice_window;
 GtkWidget *notice_label_1;
@@ -79,21 +84,6 @@ GtkWidget *notice_label_2;
 
 int internal_gui_update_only = 0;
 int host_requested_quit = 0;
-
-/* ==== a couple things that liblo will soon have ==== */
-
-int
-lo_server_get_socket_fd(lo_server server)
-{
-    return *(int *)server;  /* !FIX! ack. _will_ break, but saves us from needing lo_types_internal.h here.*/
-}
-
-int
-lo_server_set_nonblocking(lo_server server)
-{
-    /* make the server socket non-blocking */
-    return fcntl(lo_server_get_socket_fd(server), F_SETFL, O_NONBLOCK);
-}
 
 /* ==== OSC handling ==== */
 
@@ -179,31 +169,64 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
 
     if (!strcmp(&argv[0]->s, "load")) {
 
-        int result;
+        char *path = fsd_locate_soundfont_file(&argv[1]->s, project_directory);
+        int result = 0;
 
-        internal_gui_update_only = 1;
-        result = load_soundfont(&argv[1]->s);
-        internal_gui_update_only = 0;
+        if (path) {
+            internal_gui_update_only = 1;
+            result = load_soundfont(path);
+            internal_gui_update_only = 0;
+        }
 
-        if (!result) {
+        if (!path || !result) {
             DEBUG_DSSI("fsd-gui osc_configure_handler: load_soundfont() failed!\n");
             gtk_label_set_text (GTK_LABEL (notice_label_1), "Unable to load the soundfont requested by the host!");
             gtk_label_set_text (GTK_LABEL (notice_label_2), &argv[1]->s);
             gtk_widget_show(notice_window);
         }
+        /* Note: if SF2_PATH or the project directory was used to find the
+         * soundfont, this does not inform the user here (other than the path
+         * widget displaying the substituted path), because the plugin has
+         * probably passed an error to the host stating the same thing. */
+
+        if (path) free(path);
+
+        return 0;
+
+    } else if (!strcmp(&argv[0]->s, DSSI_GLOBAL_CONFIGURE_PREFIX "gain")) {
+
+        float new_gain = atof(&argv[1]->s);
+
+        if (new_gain <= 0.0f) {
+            return 0;  /* gain out of range */
+        }
+        new_gain = log10f(new_gain) * 20.0f;
+        if (new_gain < -96.0f)
+            new_gain = -96.0f;
+        else if (new_gain > 20.0f)
+            new_gain = 20.0f;
+
+        internal_gui_update_only = 1;
+
+        GTK_ADJUSTMENT(gain_adj)->value = new_gain;
+        gtk_signal_emit_by_name (GTK_OBJECT (gain_adj), "value_changed");  /* causes call to on_gain_slider_change */
+
+        internal_gui_update_only = 0;
 
         return 0;
 
     } else if (!strcmp(&argv[0]->s, DSSI_PROJECT_DIRECTORY_KEY)) {
 
-	//!!! Set the default directory for future file selections
+        if (project_directory)
+            free(project_directory);
+        project_directory = strdup(&argv[1]->s);
 
 	return 0;
 
     } else {
 
         return osc_debug_handler(path, types, argv, argc, msg, user_data);
-	
+
     }
 }
 
@@ -262,14 +285,14 @@ osc_data_on_socket_callback(gpointer data, gint source,
 {
     lo_server server = (lo_server)data;
 
-    lo_server_recv(server);                                                 
+    lo_server_recv_noblock(server, 0);
 }
 
 gint
-update_request_timeout_callback(gpointer self_url)
+update_request_timeout_callback(gpointer data)
 {
     /* send our update request */
-    lo_send(osc_host_address, osc_update_path, "s", (char *)self_url);
+    lo_send(osc_host_address, osc_update_path, "s", osc_self_url);
 
     return FALSE;  /* don't need to do this again */
 }
@@ -291,6 +314,20 @@ on_delete_event_wrapper( GtkWidget *widget, GdkEvent *event, gpointer data )
 void
 on_select_soundfont_button_press(GtkWidget *widget, gpointer data)
 {
+    if (soundfont_filename) {
+        gtk_file_selection_set_filename(GTK_FILE_SELECTION(file_selection),
+                                        soundfont_filename);
+    } else if (project_directory) {
+        if (project_directory[strlen(project_directory) - 1] != '/') {
+            char buffer[PATH_MAX];
+            snprintf(buffer, PATH_MAX, "%s/", project_directory);
+            gtk_file_selection_set_filename(GTK_FILE_SELECTION(file_selection),
+                                            buffer);
+        } else {
+            gtk_file_selection_set_filename(GTK_FILE_SELECTION(file_selection),
+                                            project_directory);
+        }
+    }
     gtk_widget_show(file_selection);
 }
 
@@ -311,7 +348,9 @@ load_soundfont(char *filename)
             sfont_free_data(soundfont_data);
 
         soundfont_data = sfdata;
-        strncpy(soundfont_filename, filename, PATH_MAX);
+        if (soundfont_filename)
+            free(soundfont_filename);
+        soundfont_filename = strdup(filename);
 
         gtk_label_set_text (GTK_LABEL (soundfont_label), filename);
 
@@ -380,6 +419,25 @@ on_preset_selection(GtkWidget      *clist,
         DEBUG_DSSI("fsd-gui on_preset_selection: out-of-range preset %d selected\n", row);
 
     }
+}
+
+void
+on_gain_slider_change(GtkWidget *widget, gpointer data)
+{
+    float db = GTK_ADJUSTMENT(widget)->value;
+    float gain = powf(10.0f, db / 20.0f);
+    char buffer[10];
+
+    if (internal_gui_update_only) {
+        /* DEBUG_DSSI("fsd-gui on_gain_slider_change: skipping further action\n"); */
+        return;
+    }
+
+    DEBUG_DSSI("fsd-gui on_gain_slider_change: new gain %f => %f\n", db, gain);
+
+    snprintf(buffer, 10, "%9.6f", gain);
+    lo_send(osc_host_address, osc_configure_path, "ss",
+            DSSI_GLOBAL_CONFIGURE_PREFIX "gain", buffer);
 }
 
 void
@@ -520,14 +578,18 @@ create_main_window (const char *tag)
   GtkWidget *vbox4;
   GtkWidget *frame2;
   GtkWidget *frame4;
+  GtkWidget *frame3;
   GtkWidget *scrolledwindow1;
   GtkWidget *label11;
   GtkWidget *label12;
   GtkWidget *label13;
   GtkWidget *frame5;
+  GtkWidget *table1;
+  GtkWidget *label1;
   GtkWidget *table6;
   GtkWidget *label6;
   GtkWidget *label7;
+  GtkWidget *gain_scale;
   GtkWidget *key_scale;
   GtkWidget *velocity_scale;
   GtkWidget *hbox1;
@@ -610,6 +672,46 @@ create_main_window (const char *tag)
   gtk_widget_show (label13);
   gtk_clist_set_column_widget (GTK_CLIST (preset_clist), 2, label13);
 
+  frame3 = gtk_frame_new ("Global Setting");
+  gtk_widget_ref (frame3);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "frame3", frame3,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (frame3);
+  gtk_box_pack_start (GTK_BOX (vbox4), frame3, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame3), 5);
+
+  table1 = gtk_table_new (1, 2, FALSE);
+  gtk_widget_ref (table1);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "table1", table1,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (table1);
+  gtk_container_add (GTK_CONTAINER (frame3), table1);
+  gtk_container_set_border_width (GTK_CONTAINER (table1), 4);
+
+  label1 = gtk_label_new ("gain (dB)");
+  gtk_widget_ref (label1);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "label1", label1,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (label1);
+  gtk_table_attach (GTK_TABLE (table1), label1, 0, 1, 0, 1,
+                    (GtkAttachOptions) (GTK_FILL),
+                    (GtkAttachOptions) (0), 0, 0);
+  gtk_misc_set_alignment (GTK_MISC (label1), 0, 0.5);
+  gtk_misc_set_padding (GTK_MISC (label1), 5, 0);
+
+    gain_adj = gtk_adjustment_new (-14, -96, 30, 1, 10, 10);
+  gain_scale = gtk_hscale_new (GTK_ADJUSTMENT (gain_adj));
+  gtk_widget_ref (gain_scale);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "gain_scale", gain_scale,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (gain_scale);
+  gtk_table_attach (GTK_TABLE (table1), gain_scale, 1, 2, 0, 1,
+                    (GtkAttachOptions) (GTK_EXPAND | GTK_FILL),
+                    (GtkAttachOptions) (GTK_FILL), 0, 0);
+  gtk_scale_set_value_pos (GTK_SCALE (gain_scale), GTK_POS_RIGHT);
+  gtk_scale_set_digits (GTK_SCALE (gain_scale), 0);
+    gtk_range_set_update_policy (GTK_RANGE (gain_scale), GTK_UPDATE_DELAYED);
+
   frame5 = gtk_frame_new ("Test Note");
   gtk_widget_ref (frame5);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "frame5", frame5,
@@ -658,6 +760,7 @@ create_main_window (const char *tag)
                     (GtkAttachOptions) (GTK_FILL), 0, 0);
   gtk_scale_set_value_pos (GTK_SCALE (key_scale), GTK_POS_RIGHT);
   gtk_scale_set_digits (GTK_SCALE (key_scale), 0);
+    gtk_range_set_update_policy (GTK_RANGE (key_scale), GTK_UPDATE_DELAYED);
 
   velocity_scale = gtk_hscale_new (GTK_ADJUSTMENT (gtk_adjustment_new (96, 1, 137, 1, 10, 10)));
   gtk_widget_ref (velocity_scale);
@@ -669,6 +772,7 @@ create_main_window (const char *tag)
                     (GtkAttachOptions) (GTK_FILL), 0, 0);
   gtk_scale_set_value_pos (GTK_SCALE (velocity_scale), GTK_POS_RIGHT);
   gtk_scale_set_digits (GTK_SCALE (velocity_scale), 0);
+    gtk_range_set_update_policy (GTK_RANGE (velocity_scale), GTK_UPDATE_DELAYED);
 
   hbox1 = gtk_hbox_new (FALSE, 40);
   gtk_widget_ref (hbox1);
@@ -709,6 +813,11 @@ create_main_window (const char *tag)
     gtk_signal_connect(GTK_OBJECT(preset_clist), "select_row",
                        GTK_SIGNAL_FUNC(on_preset_selection),
                        NULL);
+
+    /* connect settings widgets */
+    gtk_signal_connect (GTK_OBJECT(gain_adj), "value_changed",
+                        GTK_SIGNAL_FUNC(on_gain_slider_change),
+                        NULL);
 
     /* connect test note widgets */
     gtk_signal_connect (GTK_OBJECT (gtk_range_get_adjustment (GTK_RANGE (key_scale))),
@@ -868,7 +977,7 @@ create_windows(const char *instance_tag)
 int
 main (int argc, char *argv[])
 {
-    char *host, *port, *path, *tmp_url, *self_url;
+    char *host, *port, *path, *tmp_url;
     lo_server osc_server;
     gint osc_server_socket_tag;
     gint update_request_timeout_tag;
@@ -899,10 +1008,6 @@ main (int argc, char *argv[])
     osc_update_path    = osc_build_path(path, "/update");
 
     osc_server = lo_server_new(NULL, osc_error);
-    if (lo_server_set_nonblocking(osc_server)) {
-        DEBUG_DSSI("fsd-gui error: could not set make OSC server non-blocking!\n");
-        /* bumpy ride! */
-    }
     lo_server_add_method(osc_server, osc_configure_path, "ss", osc_configure_handler, NULL);
     lo_server_add_method(osc_server, osc_control_path, "if", osc_control_handler, NULL);
     lo_server_add_method(osc_server, osc_hide_path, "", osc_action_handler, "hide");
@@ -912,13 +1017,17 @@ main (int argc, char *argv[])
     lo_server_add_method(osc_server, NULL, NULL, osc_debug_handler, NULL);
 
     tmp_url = lo_server_get_url(osc_server);
-    self_url = osc_build_path(tmp_url, (strlen(path) > 1 ? path + 1 : path));
+    osc_self_url = osc_build_path(tmp_url, (strlen(path) > 1 ? path + 1 : path));
     free(tmp_url);
 
     /* set up GTK+ */
     create_windows(argv[4]);
 
     /* add OSC server socket to GTK+'s watched I/O */
+    if (lo_server_get_socket_fd(osc_server) < 0) {
+        fprintf(stderr, "fsd-gui fatal: OSC transport does not support exposing socket fd\n");
+        exit(1);
+    }
     osc_server_socket_tag = gdk_input_add(lo_server_get_socket_fd(osc_server),
                                           GDK_INPUT_READ,
                                           osc_data_on_socket_callback,
@@ -927,7 +1036,7 @@ main (int argc, char *argv[])
     /* schedule our update request */
     update_request_timeout_tag = gtk_timeout_add(50,
                                                  update_request_timeout_callback,
-                                                 (gpointer)self_url);
+                                                 NULL);
 
     /* let GTK+ take it from here */
     gtk_main();
@@ -947,6 +1056,10 @@ main (int argc, char *argv[])
     /* free soundfont data, if any */
     if (soundfont_data)
         sfont_free_data(soundfont_data);
+    if (soundfont_filename)
+        free(soundfont_filename);
+    if (project_directory)
+        free(project_directory);
     if (presets_by_row)
         free(presets_by_row);
 
@@ -964,6 +1077,7 @@ main (int argc, char *argv[])
     free(osc_quit_path);
     free(osc_show_path);
     free(osc_update_path);
+    free(osc_self_url);
 
     return 0;
 }

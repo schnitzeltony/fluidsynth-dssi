@@ -35,7 +35,7 @@
 #warning  ----------------------------------------------------------
 #warning  This code uses structures and functions from libfluidsynth
 #warning  that are not part of its standard API.  This has only been
-#warning  tested with FluidSynth version 1.0.3, which is not the
+#warning  tested with FluidSynth version 1.0.3, which is not what
 #warning  you appear to have installed.  Proceed at your own risk!
 #warning  ----------------------------------------------------------
 #endif
@@ -106,8 +106,6 @@ int     sfont_preset_compare_func (const void* a, const void* b);
 
 /* ==== FluidSynth-DSSI_gtk prototypes ==== */
 
-int  lo_server_get_socket_fd(lo_server server);
-int  lo_server_set_nonblocking(lo_server server);
 int  osc_debug_handler(const char *path, const char *types, lo_arg **argv,
                        int argc, lo_message msg, void *user_data);
 int  osc_action_handler(const char *path, const char *types, lo_arg **argv,

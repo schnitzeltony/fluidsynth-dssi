@@ -1,3 +1,14 @@
+20041101
+ * Updated for DSSI v0.9: implemented project directory.
+ * Updated for liblo v0.12: removed non-blocking hack.
+ * Implemented loading soundfont from SF2_PATH in GUI.
+ * Implemented gain setting in GUI.
+ * Better inter-thread cooperation: fsd_configure() now avoids
+     grabbing the mutex on 'load' calls when the soundfont is
+     already loaded, and fsd_select_program() checks for valid
+     programs before grabbing mutex, and saves the program change
+     if it can't get the lock.
+ 
 20041005
  * GUI now waits to send OSC update request from inside gtk_main()
 

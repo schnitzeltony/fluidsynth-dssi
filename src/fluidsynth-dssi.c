@@ -33,17 +33,8 @@
 #include <stdarg.h>
 #include <pthread.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-
 #include <ladspa.h>
 #include <dssi.h>
-
-#if DSSI_VERSION_MINOR < 4
-#error  This code requires DSSI version 0.4 or greater support!
-#endif
 
 #ifndef WITH_FLOAT
 #define WITH_FLOAT
@@ -54,6 +45,10 @@
 #include "fluid_chan.h"
 
 #include "fluidsynth-dssi.h"
+
+/* in locate_soundfont.c: */
+char *fsd_locate_soundfont_file(const char *origpath,
+                                const char *projectDirectory);
 
 static LADSPA_Descriptor  *fsd_LADSPA_descriptor = NULL;
 static DSSI_Descriptor    *fsd_DSSI_descriptor = NULL;
@@ -129,6 +124,25 @@ fsd_mutex_unlock(void)
 /* ---- soundfont handling ---- */
 
 /*
+ * fsd_find_loaded_soundfont
+ */
+fsd_sfont_t *
+fsd_find_loaded_soundfont(const char *path)
+{
+    fsd_sfont_t *sfont;
+
+    /* check if we already have the soundfont loaded */
+    sfont = fsd_synth.soundfonts;
+    while (sfont) {
+        if (!strcmp(path, sfont->path)) {
+            return sfont;
+        }
+        sfont = sfont->next;
+    }
+    return NULL;
+}
+
+/*
  * fsd_get_soundfont
  */
 fsd_sfont_t *
@@ -139,15 +153,12 @@ fsd_get_soundfont(const char *path)
     fluid_sfont_t *fluid_sfont;
     fluid_preset_t preset;
 
-    /* check if we already have this soundfont loaded */
-    sfont = fsd_synth.soundfonts;
-    while (sfont) {
-        if (!strcmp(path, sfont->path)) {
-            sfont->ref_count++;
-            DEBUG_DSSI("fsd: soundfont %d refcount now %d\n", sfont->sfont_id, sfont->ref_count);
-            return sfont;
-        }
-        sfont = sfont->next;
+    /* soundfont already loaded? */
+    sfont = fsd_find_loaded_soundfont(path);
+    if (sfont) {
+        sfont->ref_count++;
+        DEBUG_DSSI("fsd: soundfont %d refcount now %d\n", sfont->sfont_id, sfont->ref_count);
+        return sfont;
     }
 
     /* nope, so load it */
@@ -168,11 +179,11 @@ fsd_get_soundfont(const char *path)
     }
     sfont->ref_count = 1;
 
-    /* enumerate programs */
-    sfont->program_count = 0;
+    /* enumerate presets */
+    sfont->preset_count = 0;
     palloc = 256;
-    sfont->programs = (DSSI_Program_Descriptor *)malloc(palloc * sizeof(DSSI_Program_Descriptor));
-    if (!sfont->programs) {
+    sfont->presets = (DSSI_Program_Descriptor *)malloc(palloc * sizeof(DSSI_Program_Descriptor));
+    if (!sfont->presets) {
         fluid_synth_sfunload(fsd_synth.fluid_synth, sfont->sfont_id, 0);
         free(sfont->path);
         free(sfont);
@@ -181,28 +192,28 @@ fsd_get_soundfont(const char *path)
     fluid_sfont = fluid_synth_get_sfont_by_id(fsd_synth.fluid_synth, sfont->sfont_id);
     fluid_sfont->iteration_start(fluid_sfont);
     while (fluid_sfont->iteration_next(fluid_sfont, &preset)) {
-        if (sfont->program_count == palloc) {
+        if (sfont->preset_count == palloc) {
             palloc *= 2;
-            sfont->programs = (DSSI_Program_Descriptor *)realloc(sfont->programs,
-                                                                 palloc * sizeof(DSSI_Program_Descriptor));
-            if (!sfont->programs) {
+            sfont->presets = (DSSI_Program_Descriptor *)realloc(sfont->presets,
+                                                                palloc * sizeof(DSSI_Program_Descriptor));
+            if (!sfont->presets) {
                 fluid_synth_sfunload(fsd_synth.fluid_synth, sfont->sfont_id, 0);
                 free(sfont->path);
                 free(sfont);
                 return NULL;
             }
         }
-        sfont->programs[sfont->program_count].Bank = preset.get_banknum(&preset);
-        sfont->programs[sfont->program_count].Program = preset.get_num(&preset);
-        sfont->programs[sfont->program_count].Name = preset.get_name(&preset);
-        sfont->program_count++;
+        sfont->presets[sfont->preset_count].Bank = preset.get_banknum(&preset);
+        sfont->presets[sfont->preset_count].Program = preset.get_num(&preset);
+        sfont->presets[sfont->preset_count].Name = preset.get_name(&preset);
+        sfont->preset_count++;
     }
 
     /* add it to soundfont list */
     sfont->next = fsd_synth.soundfonts;
     fsd_synth.soundfonts = sfont;
 
-    DEBUG_DSSI("fsd: soundfont '%s' loaded as sfont_id %d (refcount 1, %d programs)\n", path, sfont->sfont_id, sfont->program_count);
+    DEBUG_DSSI("fsd: soundfont '%s' loaded as sfont_id %d (refcount 1, %d presets)\n", path, sfont->sfont_id, sfont->preset_count);
     return sfont;
 }
 
@@ -234,7 +245,7 @@ fsd_release_soundfont(fsd_sfont_t *sfont)
 
         /* free soundfont */
         fluid_synth_sfunload(fsd_synth.fluid_synth, sfont->sfont_id, 0);
-        free(sfont->programs);
+        free(sfont->presets);
         free(sfont->path);
         free(sfont);
     } else {
@@ -280,6 +291,7 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         }
 
         /* other module-wide initialization */
+        fsd_synth.project_directory = NULL;
         fsd_synth.burst_remains = 0;
         fsd_synth.gain = -1.0f;
     }
@@ -298,6 +310,7 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         }
     }
 
+    instance->pending_preset_change = -1;
     instance->soundfont = NULL;
     instance->tmpbuf_l = (LADSPA_Data *)FLUID_ALIGN16BYTE(instance->tmpbuf_unaligned);
     instance->tmpbuf_r = instance->tmpbuf_l + FLUID_BUFSIZE;
@@ -394,7 +407,7 @@ fsd_cleanup(LADSPA_Handle handle)
         while (fsd_synth.soundfonts) {
             fsd_sfont_t *next = fsd_synth.soundfonts->next;
             fluid_synth_sfunload(fsd_synth.fluid_synth, fsd_synth.soundfonts->sfont_id, 0);
-            free(fsd_synth.soundfonts->programs);
+            free(fsd_synth.soundfonts->presets);
             free(fsd_synth.soundfonts->path);
             free(fsd_synth.soundfonts);
             fsd_synth.soundfonts = next;
@@ -405,70 +418,6 @@ fsd_cleanup(LADSPA_Handle handle)
     free(instance);
 }
 
-#define DEFAULT_SF2PATH "/usr/local/share/sf2:/usr/share/sf2"
-
-static char *projectDirectory = NULL;
-
-static char *
-locate_soundfont(const char *origpath)
-{
-    char *sf2path = getenv("SF2_PATH");
-    char *path, *origPath, *element, *eltpath;
-    const char *filename;
-
-    filename = strrchr(origpath, '/');
-
-    if (filename) ++filename;
-    else filename = origpath;
-    if (!*filename) return NULL;
-
-    if (sf2path) path = strdup(sf2path);
-    else {
-	char *home = getenv("HOME");
-	if (!home) path = strdup(DEFAULT_SF2PATH);
-	else {
-	    path = (char *)malloc(strlen(DEFAULT_SF2PATH) + strlen(home) + 6);
-	    sprintf(path, "%s/sf2:%s", home, DEFAULT_SF2PATH);
-	}
-    }
-
-    if (projectDirectory) {
-	origPath = path;
-	path = (char *)malloc(strlen(origPath) + strlen(projectDirectory) + 2);
-	sprintf(path, "%s:%s", projectDirectory, origPath);
-	free(origPath);
-    }
-
-    origPath = path;
-
-    while ((element = strtok(path, ":")) != 0) {
-
-	int testfd;
-	path = 0;
-
-	if (element[0] != '/') {
-	    fprintf(stderr, "fluidsynth-dssi: Ignoring relative element %s in path\n", element);
-	    continue;
-	}
-
-	eltpath = (char *)malloc(strlen(element) + strlen(filename) + 2);
-	sprintf(eltpath, "%s/%s", element, filename);
-
-	testfd = open(eltpath, O_RDONLY);
-	if (testfd >= 0) {
-	    close(testfd);
-	    free(origPath);
-	    return eltpath;
-	}
-
-	free(eltpath);
-    }
-
-    free(origPath);
-    return NULL;
-}
-
-    
 /* ---- DSSI interface ---- */
 
 /*
@@ -501,64 +450,70 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
      * before acting upon it. */
 
     fsd_instance_t *instance = (fsd_instance_t *)handle;
+    int have_mutex_lock = 0;
 
     DEBUG_DSSI("fsd %d: fsd_configure called with '%s' and '%s'\n", instance->channel, key, value);
 
     if (!strcmp(key, "load")) {
 
+        char *sfpath = fsd_locate_soundfont_file(value, fsd_synth.project_directory);
+
+        if (!sfpath)
+            return dssi_configure_message("error: could not find soundfont '%s'", value);
+
         if (instance->soundfont &&
-            !strcmp(value, instance->soundfont->path)) {
-            return dssi_configure_message("soundfont '%s' already loaded", value);
+            !strcmp(sfpath, instance->soundfont->path)) {
+            free(sfpath);
+            return NULL;  /* soundfont already loaded */
         }
 
-        fsd_mutex_lock();
+        /* avoid grabbing the mutex if possible */
+        if ((instance->soundfont && instance->soundfont->ref_count < 2) /* if current soundfont needs unloading */
+            || !fsd_find_loaded_soundfont(sfpath)) {                    /*    or requested soundfont not loaded */
+
+            fsd_mutex_lock();
+            have_mutex_lock = 1;
+        }
 
         if (instance->soundfont) {
             fsd_release_soundfont(instance->soundfont);
             instance->soundfont = NULL;
         }
 
-        instance->soundfont = fsd_get_soundfont(value);
+        instance->soundfont = fsd_get_soundfont(sfpath);
+        if (instance->soundfont) {
+            instance->pending_preset_change = instance->soundfont->preset_count ? 0 : -1;
+        }
 
-        fsd_mutex_unlock();
+        if (have_mutex_lock) {
+            fsd_mutex_unlock();
+        }
 
         if (instance->soundfont) {
-            if (instance->soundfont->program_count) {
-                fluid_synth_program_select(fsd_synth.fluid_synth,
-                                           instance->channel,
-                                           instance->soundfont->sfont_id,
-                                           instance->soundfont->programs[0].Bank,
-                                           instance->soundfont->programs[0].Program);
+            if (!strcmp(value, sfpath)) {
+                free(sfpath);
+                return NULL;  /* success */
+            } else {
+                char *rv = dssi_configure_message("warning: soundfont '%s' not "
+                                                  "found, loaded '%s' instead",
+                                                  value, sfpath);
+                free(sfpath);
+                return rv;
             }
-	    /* dssi.h says return NULL for success, not an informational string */
-            return NULL;
         } else {
-	    char *lookup = locate_soundfont(value);
-	    if (lookup && (strcmp(lookup, value) != 0)) {
-		char *rv = fsd_configure(handle, key, lookup);
-		if (rv == NULL) {
-		    rv = dssi_configure_message
-			("warning: soundfont '%s' not found: loading '%s' instead",
-			 value, lookup);
-		    free(lookup);
-		    return rv;
-		}
-	    }
-	    if (lookup) {
-		free(lookup);
-	    }
+            free(sfpath);
             return dssi_configure_message("error: could not load soundfont '%s'", value);
         }
 
-    } else if (!strcmp(key, "gain")) {
+    } else if (!strcmp(key, DSSI_GLOBAL_CONFIGURE_PREFIX "gain")) {
 
         float new_gain = atof(value);
 
-        if (new_gain < 0.0f || new_gain > 10.0f) {
+        if (new_gain < 0.0000001f || new_gain > 10.0f) {
             return dssi_configure_message("error: out-of-range gain '%s'", value);
         }
         if (new_gain == fsd_synth.gain) {
-            return dssi_configure_message("gain already set at %f", new_gain);
+            return NULL;  /* gain already set at new_gain */
         }
 
         fsd_mutex_lock();
@@ -569,24 +524,22 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
 
         fsd_synth.gain = new_gain;
         
-	/* dssi.h says return NULL for success, not an informational string */
 	return NULL;
 
     } else if (!strcmp(key, DSSI_PROJECT_DIRECTORY_KEY)) {
 
-	if (projectDirectory) {
-	    free(projectDirectory);
+	if (fsd_synth.project_directory) {
+	    free(fsd_synth.project_directory);
 	}
 	if (value) {
-	    projectDirectory = strdup(value);
+	    fsd_synth.project_directory = strdup(value);
 	} else {
-	    projectDirectory = NULL;
+	    fsd_synth.project_directory = NULL;
 	}
 
 	return NULL;
-    }
 
-    // -FIX- implement setting synth.polyphony
+    }
 
     return strdup("error: unrecognized configure key");
 }
@@ -603,11 +556,11 @@ fsd_get_program(LADSPA_Handle handle, unsigned long index)
 
     DEBUG_DSSI("fsd %d: fsd_get_program called with %lu\n", instance->channel, index);
 
-    if (!instance->soundfont || index >= instance->soundfont->program_count) {
+    if (!instance->soundfont || index >= instance->soundfont->preset_count) {
         return NULL;
     }
 
-    return &instance->soundfont->programs[index];
+    return &instance->soundfont->presets[index];
 }
 
 /*
@@ -620,14 +573,25 @@ fsd_select_program(LADSPA_Handle handle, unsigned long bank,
                    unsigned long program)
 {
     fsd_instance_t *instance = (fsd_instance_t *)handle;
+    int preset;
 
     DEBUG_DSSI("fsd %d: fsd_select_program called with %lu and %lu\n", instance->channel, bank, program);
 
     if (!instance->soundfont)
         return;
 
+    /* ignore invalid program requests */
+    for (preset = 0; preset < instance->soundfont->preset_count; preset++) {
+        if (instance->soundfont->presets[preset].Bank == bank &&
+            instance->soundfont->presets[preset].Program == program)
+            break;
+    }
+    if (preset == instance->soundfont->preset_count)
+        return;
+
     /* Attempt the mutex, return if lock fails. */
     if (fsd_mutex_trylock()) {
+        instance->pending_preset_change = preset;
         return;
     }
     fluid_synth_program_select(fsd_synth.fluid_synth, instance->channel,
@@ -667,6 +631,21 @@ fsd_get_midi_controller(LADSPA_Handle handle, unsigned long port)
 //                             snd_seq_event_t *Events,
 //                             unsigned long    EventCount);
     
+/*
+ * fsd_handle_pending_preset_change
+ */
+static inline void
+fsd_handle_pending_preset_change(fsd_instance_t *instance)
+{
+    int preset = instance->pending_preset_change;
+
+    fluid_synth_program_select(fsd_synth.fluid_synth,
+                               instance->channel,
+                               instance->soundfont->sfont_id,
+                               instance->soundfont->presets[preset].Bank,
+                               instance->soundfont->presets[preset].Program);
+}
+
 /*
  * fsd_handle_event
  */
@@ -777,8 +756,13 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
         return;
     }
 
-    for (i = 0; i < instance_count; i++)
+    for (i = 0; i < instance_count; i++) {
         event_index[i] = 0;
+        if (instances[i]->pending_preset_change > -1) {
+            fsd_handle_pending_preset_change(instances[i]);
+            instances[i]->pending_preset_change = -1;
+        }
+    }
 
     /* First, if there is any data remaining from a previous render burst,
      * copy it from our temporary buffers. */

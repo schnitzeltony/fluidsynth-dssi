@@ -16,7 +16,7 @@ PREFIX ?= /usr/local
 
 # 3. Adjust anything here as needed:
 
-OPTIMIZATION_CFLAGS = -O2 -s -fomit-frame-pointer -funroll-all-loops -ffast-math -finline-functions -finline-limit=5000 -minline-all-stringops -Winline
+OPTIMIZATION_CFLAGS = -O2 -s -fomit-frame-pointer -funroll-loops -ffast-math -finline-functions -finline-limit=5000 -minline-all-stringops -Winline
 
 PLUGIN_CFLAGS = -Wall -I. -I../dssi -I$(FLUID_INCLUDE) -I$(FLUID_SRC) $(OPTIMIZATION_CFLAGS)
 PLUGIN_LDFLAGS = -nostartfiles -shared
@@ -43,13 +43,15 @@ clean:
 distclean:	clean
 	rm -f *~ $(TARGETS)
 
+locate_soundfont.o: locate_soundfont.c
+	gcc $(PLUGIN_CFLAGS) -c -o locate_soundfont.o locate_soundfont.c
+
 fluidsynth-dssi.o: fluidsynth-dssi.c fluidsynth-dssi.h ../dssi/dssi.h
 	gcc $(PLUGIN_CFLAGS) -c -o fluidsynth-dssi.o fluidsynth-dssi.c
 
-fluidsynth-dssi.so: fluidsynth-dssi.o
-	gcc $(PLUGIN_LDFLAGS) -o fluidsynth-dssi.so fluidsynth-dssi.o $(PLUGIN_LDLIBS)
+fluidsynth-dssi.so: fluidsynth-dssi.o locate_soundfont.o
+	gcc $(PLUGIN_LDFLAGS) -o fluidsynth-dssi.so fluidsynth-dssi.o locate_soundfont.o $(PLUGIN_LDLIBS)
 
-FluidSynth-DSSI_gtk: FluidSynth-DSSI_gtk.c FluidSynth-DSSI_gtk.h ../dssi/dssi.h
-	gcc $(GUI_CFLAGS) -o FluidSynth-DSSI_gtk FluidSynth-DSSI_gtk.c $(GUI_LDFLAGS)
-
+FluidSynth-DSSI_gtk: FluidSynth-DSSI_gtk.c FluidSynth-DSSI_gtk.h ../dssi/dssi.h locate_soundfont.o
+	gcc $(GUI_CFLAGS) -o FluidSynth-DSSI_gtk FluidSynth-DSSI_gtk.c locate_soundfont.o $(GUI_LDFLAGS)
 
