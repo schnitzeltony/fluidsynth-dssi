@@ -25,15 +25,22 @@ PLUGIN_LDLIBS = -lfluidsynth
 GUI_CFLAGS = -Wall -O2 $(shell gtk-config --cflags) $(shell pkg-config liblo --cflags) -I$(FLUID_INCLUDE) -I$(FLUID_SRC)
 GUI_LDFLAGS = $(shell gtk-config --libs) $(shell pkg-config liblo --libs) -lfluidsynth
 
+TARGETS	=	fluidsynth-dssi.so FluidSynth-DSSI_gtk
+
 # ----------------------------------------------------------------------------
 
-all: fluidsynth-dssi.so FluidSynth-DSSI_gtk
+all: $(TARGETS)
 
 install: all
 	mkdir -p $(PREFIX)/lib/dssi/fluidsynth-dssi
 	cp fluidsynth-dssi.so $(PREFIX)/lib/dssi/
 	cp FluidSynth-DSSI_gtk $(PREFIX)/lib/dssi/fluidsynth-dssi/
 
+clean:
+	rm -f *.o
+
+distclean:	clean
+	rm -f *~ $(TARGETS)
 
 fluidsynth-dssi.o: fluidsynth-dssi.c fluidsynth-dssi.h ../dssi/dssi.h
 	gcc $(PLUGIN_CFLAGS) -c -o fluidsynth-dssi.o fluidsynth-dssi.c
