@@ -18,7 +18,7 @@
  * PURPOSE.  See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the Free
+ * License along with this program; if not, write to the Free
  * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307, USA.
  */
@@ -39,6 +39,16 @@
 // #define DEBUG_AUDIO
 
 /* ==== end of debugging ==== */
+
+/* ==== things we need from FluidSynth, that aren't in the API ==== */
+
+/* in fluid_settings.h: */
+typedef int (*fluid_int_update_t)(void* data, char* name, int value);
+int fluid_settings_register_int(fluid_settings_t* settings, char* name, int min,
+                                int max, int def, int hints,
+                                fluid_int_update_t fun, void* data);
+
+/* ==== fluidsynth-dssi ==== */
 
 #define FSD_MAX_CHANNELS  256  /* derived from FluidSynth's virtual channel limit */
 
@@ -90,7 +100,10 @@ struct _fsd_synth_t {
     fluid_synth_t    *fluid_synth;
     fsd_sfont_t      *soundfonts;
     float             gain;
+    int               polyphony;
+    int               original_nvoice;
     fsd_instance_t   *channel_map[FSD_MAX_CHANNELS];
 };
 
 #endif /* _FLUIDSYNTH_DSSI_H */
+

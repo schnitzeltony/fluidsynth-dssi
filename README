@@ -67,6 +67,11 @@ if set, to search for soundfonts.
 The available soundfont presets will be displayed in the 'Preset'
 window.  Clicking on one will select that preset.
 
+Under 'Global Settings', the 'gain (dB)' setting affects the output
+level of all running FluidSynth-DSSI instances.  The 'polyphony'
+setting sets the maximum number of voices that will be played by all
+instances.
+
 Test notes may be generated using the 'Send Test Note' button.  You
 may select the pitch and velocity of the note using the 'Test Note'
 sliders.

@@ -18,7 +18,7 @@
  * PURPOSE.  See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the Free
+ * License along with this program; if not, write to the Free
  * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307, USA.
  */
@@ -44,6 +44,8 @@
 #include <lo/lo.h>
 
 #include "FluidSynth-DSSI_gtk.h"
+
+#define FSD_MAX_POLYPHONY  256  /* -FIX- should be in a header shared with fluidsynth-dssi.c */
 
 /* in locate_soundfont.c: */
 char *fsd_locate_soundfont_file(const char *origpath,
@@ -77,6 +79,7 @@ GtkWidget *main_window;
 GtkWidget *soundfont_label;
 GtkWidget *preset_clist;
 GtkObject *gain_adj;
+GtkObject *polyphony_adj;
 GtkWidget *file_selection;
 GtkWidget *notice_window;
 GtkWidget *notice_label_1;
@@ -210,6 +213,23 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
 
         GTK_ADJUSTMENT(gain_adj)->value = new_gain;
         gtk_signal_emit_by_name (GTK_OBJECT (gain_adj), "value_changed");  /* causes call to on_gain_slider_change */
+
+        internal_gui_update_only = 0;
+
+        return 0;
+
+    } else if (!strcmp(&argv[0]->s, DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony")) {
+
+        int new_poly = atol(&argv[1]->s);
+
+        if (new_poly < 1 || new_poly > FSD_MAX_POLYPHONY) {
+            return 0;  /* polyphony out of range */
+        }
+
+        internal_gui_update_only = 1;
+
+        GTK_ADJUSTMENT(polyphony_adj)->value = new_poly;
+        gtk_signal_emit_by_name (GTK_OBJECT (polyphony_adj), "value_changed");  /* causes call to on_polyphony_slider_change */
 
         internal_gui_update_only = 0;
 
@@ -369,8 +389,8 @@ load_soundfont(char *filename)
 void
 on_file_selection_ok( GtkWidget *widget, gpointer data )
 {
-    gchar *filename = gtk_file_selection_get_filename(
-                          GTK_FILE_SELECTION(file_selection));
+    gchar *filename = (gchar *)gtk_file_selection_get_filename(
+                                   GTK_FILE_SELECTION(file_selection));
 
     gtk_widget_hide(file_selection);
 
@@ -438,6 +458,24 @@ on_gain_slider_change(GtkWidget *widget, gpointer data)
     snprintf(buffer, 10, "%9.6f", gain);
     lo_send(osc_host_address, osc_configure_path, "ss",
             DSSI_GLOBAL_CONFIGURE_PREFIX "gain", buffer);
+}
+
+void
+on_polyphony_slider_change(GtkWidget *widget, gpointer data)
+{
+    int polyphony = lrintf(GTK_ADJUSTMENT(widget)->value);
+    char buffer[10];
+
+    if (internal_gui_update_only) {
+        /* DEBUG_DSSI("fsd-gui on_polyphony_slider_change: skipping further action\n"); */
+        return;
+    }
+
+    DEBUG_DSSI("fsd-gui on_polyphony_slider_change: new polyphony %d\n", polyphony);
+
+    snprintf(buffer, 10, "%d", polyphony);
+    lo_send(osc_host_address, osc_configure_path, "ss",
+            DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony", buffer);
 }
 
 void
@@ -590,6 +628,8 @@ create_main_window (const char *tag)
   GtkWidget *label6;
   GtkWidget *label7;
   GtkWidget *gain_scale;
+  GtkWidget *label8;
+  GtkWidget *polyphony_scale;
   GtkWidget *key_scale;
   GtkWidget *velocity_scale;
   GtkWidget *hbox1;
@@ -672,15 +712,15 @@ create_main_window (const char *tag)
   gtk_widget_show (label13);
   gtk_clist_set_column_widget (GTK_CLIST (preset_clist), 2, label13);
 
-  frame3 = gtk_frame_new ("Global Setting");
+  frame3 = gtk_frame_new ("Global Settings");
   gtk_widget_ref (frame3);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "frame3", frame3,
                             (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame3);
-  gtk_box_pack_start (GTK_BOX (vbox4), frame3, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (vbox4), frame3, FALSE, TRUE, 0);
   gtk_container_set_border_width (GTK_CONTAINER (frame3), 5);
 
-  table1 = gtk_table_new (1, 2, FALSE);
+  table1 = gtk_table_new (2, 2, FALSE);
   gtk_widget_ref (table1);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "table1", table1,
                             (GtkDestroyNotify) gtk_widget_unref);
@@ -711,6 +751,30 @@ create_main_window (const char *tag)
   gtk_scale_set_value_pos (GTK_SCALE (gain_scale), GTK_POS_RIGHT);
   gtk_scale_set_digits (GTK_SCALE (gain_scale), 0);
     gtk_range_set_update_policy (GTK_RANGE (gain_scale), GTK_UPDATE_DELAYED);
+
+    label8 = gtk_label_new ("polyphony");
+    gtk_widget_ref (label8);
+    gtk_object_set_data_full (GTK_OBJECT (main_window), "label8", label8,
+                              (GtkDestroyNotify) gtk_widget_unref);
+    gtk_widget_show (label8);
+    gtk_table_attach (GTK_TABLE (table1), label8, 0, 1, 1, 2,
+                      (GtkAttachOptions) (GTK_FILL),
+                      (GtkAttachOptions) (0), 0, 0);
+    gtk_misc_set_alignment (GTK_MISC (label8), 0, 0.5);
+    gtk_misc_set_padding (GTK_MISC (label8), 5, 0);
+
+    polyphony_adj = gtk_adjustment_new (FSD_MAX_POLYPHONY, 1, FSD_MAX_POLYPHONY+10, 1, 10, 10);
+    polyphony_scale = gtk_hscale_new (GTK_ADJUSTMENT (polyphony_adj));
+    gtk_widget_ref (polyphony_scale);
+    gtk_object_set_data_full (GTK_OBJECT (main_window), "polyphony_scale", polyphony_scale,
+                              (GtkDestroyNotify) gtk_widget_unref);
+    gtk_widget_show (polyphony_scale);
+    gtk_table_attach (GTK_TABLE (table1), polyphony_scale, 1, 2, 1, 2,
+                      (GtkAttachOptions) (GTK_EXPAND | GTK_FILL),
+                      (GtkAttachOptions) (GTK_FILL), 0, 0);
+    gtk_scale_set_value_pos (GTK_SCALE (polyphony_scale), GTK_POS_RIGHT);
+    gtk_scale_set_digits (GTK_SCALE (polyphony_scale), 0);
+    gtk_range_set_update_policy (GTK_RANGE (polyphony_scale), GTK_UPDATE_DELAYED);
 
   frame5 = gtk_frame_new ("Test Note");
   gtk_widget_ref (frame5);
@@ -817,6 +881,9 @@ create_main_window (const char *tag)
     /* connect settings widgets */
     gtk_signal_connect (GTK_OBJECT(gain_adj), "value_changed",
                         GTK_SIGNAL_FUNC(on_gain_slider_change),
+                        NULL);
+    gtk_signal_connect (GTK_OBJECT(polyphony_adj), "value_changed",
+                        GTK_SIGNAL_FUNC(on_polyphony_slider_change),
                         NULL);
 
     /* connect test note widgets */

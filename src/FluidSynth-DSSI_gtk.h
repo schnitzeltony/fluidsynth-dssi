@@ -19,7 +19,7 @@
  * PURPOSE.  See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the Free
+ * License along with this program; if not, write to the Free
  * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307, USA.
  */
@@ -31,6 +31,8 @@
 
 #include <fluidsynth.h>
 
+/* NOTE: I've examined the FluidSynth v1.0.5 code, and don't see any incompatibilities
+ * with FluidSynth-DSSI.  I have not yet actually tested v1.0.5.  -Sean Bolton 11/9/2004 */
 #if (FLUIDSYNTH_VERSION_MAJOR != 1) || (FLUIDSYNTH_VERSION_MINOR != 0) || (FLUIDSYNTH_VERSION_MICRO != 3)
 #warning  ----------------------------------------------------------
 #warning  This code uses structures and functions from libfluidsynth

@@ -7,6 +7,3 @@
     processor, or if the output buffers are already 16-byte aligned,
     and if so, skip the extra buffer copy?
 
-~ Would be nice to be able to set the max polyphony, but
-    libfluidsynth can't change it once new_fluid_synth() is called.
-

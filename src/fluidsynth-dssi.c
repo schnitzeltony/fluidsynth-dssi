@@ -18,7 +18,7 @@
  * PURPOSE.  See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the Free
+ * License along with this program; if not, write to the Free
  * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307, USA.
  */
@@ -46,6 +46,8 @@
 
 #include "fluidsynth-dssi.h"
 
+#define FSD_MAX_POLYPHONY  256  /* -FIX- should be in a header shared with FluidSynth-DSSI_gtk.c */
+
 /* in locate_soundfont.c: */
 char *fsd_locate_soundfont_file(const char *origpath,
                                 const char *projectDirectory);
@@ -66,6 +68,9 @@ struct fsd_port_descriptor fsd_port_description[FSD_PORTS_COUNT] = {
 
 static void
 fsd_all_voices_off(void);
+
+static int
+fsd_update_polyphony(void* synth, char* name, int value);
 
 static void
 fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
@@ -283,17 +288,27 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         /* set appropriate settings here */
         fluid_settings_setnum(fsd_synth.fluid_settings, "synth.sample-rate", sample_rate);
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.midi-channels", FSD_MAX_CHANNELS);
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", FSD_MAX_POLYPHONY);
 
         /* initialize the FluidSynth engine */
         if (!fsd_synth.fluid_synth &&
             !(fsd_synth.fluid_synth = new_fluid_synth(fsd_synth.fluid_settings))) {
             return NULL;
         }
+        fsd_synth.original_nvoice = fsd_synth.fluid_synth->nvoice;  /* remember allocated voice count */
+
+        /* register polyphony setting callback */
+        fluid_settings_register_int(fsd_synth.fluid_settings, "synth.polyphony",
+                                    fsd_synth.original_nvoice, 1,
+                                    fsd_synth.original_nvoice, 0,
+                                    (fluid_int_update_t)fsd_update_polyphony,
+                                    NULL);
 
         /* other module-wide initialization */
         fsd_synth.project_directory = NULL;
         fsd_synth.burst_remains = 0;
         fsd_synth.gain = -1.0f;
+        fsd_synth.polyphony = fsd_synth.original_nvoice;
     }
 
     instance = (fsd_instance_t *)calloc(1, sizeof(fsd_instance_t));
@@ -412,6 +427,7 @@ fsd_cleanup(LADSPA_Handle handle)
             free(fsd_synth.soundfonts);
             fsd_synth.soundfonts = next;
         }
+        fsd_synth.fluid_synth->nvoice = fsd_synth.original_nvoice;  /* restore allocated voice count */
         delete_fluid_synth(fsd_synth.fluid_synth);
         delete_fluid_settings(fsd_synth.fluid_settings);
     }
@@ -433,6 +449,35 @@ dssi_configure_message(const char *fmt, ...)
     vsnprintf(buffer, 256, fmt, args);
     va_end(args);
     return strdup(buffer);
+}
+
+/*
+ * fsd_update_polyphony
+ *
+ * fluid_setting callback to change maximum polyphony
+ * assumes fluid_settings_setint() caller has obtained mutex
+ */
+static int
+fsd_update_polyphony(void *data, char *name, int value)
+{
+    int i;
+    fluid_synth_t* synth = fsd_synth.fluid_synth;
+    fluid_voice_t* voice;
+    
+    DEBUG_DSSI("fsd: fsd_update_polyphony setting polyphony to %d\n", value);
+
+    synth->polyphony = value;    
+    synth->nvoice = value;
+
+    /* turn off any voices above the new limit */
+    for (i = value; i < fsd_synth.original_nvoice; i++) {
+        voice = synth->voice[i];
+        if (_PLAYING(voice)) {
+            fluid_voice_off(voice);
+        }
+    }
+
+    return 0;
 }
 
 /*
@@ -524,20 +569,41 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
 
         fsd_synth.gain = new_gain;
         
-	return NULL;
+        return NULL;
+
+    } else if (!strcmp(key, DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony")) {
+
+        float new_polyphony = atol(value);
+
+        if (new_polyphony < 1 || new_polyphony > FSD_MAX_POLYPHONY) {
+            return dssi_configure_message("error: out-of-range polyphony '%s'", value);
+        }
+        if (new_polyphony == fsd_synth.polyphony) {
+            return NULL;  /* polyphony already set at new_polyphony */
+        }
+
+        fsd_mutex_lock();
+
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", new_polyphony);
+
+        fsd_mutex_unlock();
+
+        fsd_synth.polyphony = new_polyphony;
+        
+        return NULL;
 
     } else if (!strcmp(key, DSSI_PROJECT_DIRECTORY_KEY)) {
 
-	if (fsd_synth.project_directory) {
-	    free(fsd_synth.project_directory);
-	}
-	if (value) {
-	    fsd_synth.project_directory = strdup(value);
-	} else {
-	    fsd_synth.project_directory = NULL;
-	}
+        if (fsd_synth.project_directory) {
+            free(fsd_synth.project_directory);
+        }
+        if (value) {
+            fsd_synth.project_directory = strdup(value);
+        } else {
+            fsd_synth.project_directory = NULL;
+        }
 
-	return NULL;
+        return NULL;
 
     }
 
