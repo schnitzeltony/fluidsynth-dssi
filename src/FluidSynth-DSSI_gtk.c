@@ -198,10 +198,12 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
 
 	//!!! Set the default directory for future file selections
 
+	return 0;
+
     } else {
 
         return osc_debug_handler(path, types, argv, argc, msg, user_data);
-
+	
     }
 }
 
