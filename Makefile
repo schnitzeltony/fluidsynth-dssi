@@ -6,7 +6,7 @@
 
 # 1. Define the following to point to the unpacked fluidsynth source:
 
-FLUID_SRC=/t/src/example/fluidsynth-1.0.3/src
+FLUID_SRC=/home/cannam/fluidsynth-1.0.1/src
 
 # 2. If you're bulding on OS X, comment out the 'linux' section, and
 #    uncomment the 'darwin' section:
@@ -16,7 +16,7 @@ FLUID_SRC=/t/src/example/fluidsynth-1.0.3/src
 OPTIMIZATION_CFLAGS = -O2 -s -fomit-frame-pointer -funroll-all-loops -ffast-math -finline-functions -finline-limit=5000 -minline-all-stringops -Winline
 PLUGIN_CFLAGS = -Wall -I. -I../dssi -I$(FLUID_SRC) $(OPTIMIZATION_CFLAGS)
 PLUGIN_LDFLAGS = -nostartfiles -shared
-PLUGIN_LDLIBS = -lfluidsynth -lhistory
+PLUGIN_LDLIBS = -lfluidsynth 
 GUI_CFLAGS = -Wall -O2 $(shell gtk-config --cflags) -I/opt/audio/include -I$(FLUID_SRC)
 GUI_LDFLAGS = $(shell gtk-config --libs) -L/opt/audio/lib -llo -lfluidsynth
 

@@ -499,6 +499,7 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
  * implements DSSI (*get_program)()
  */
 // -FIX- get_program():
+#define DO_GET_PROGRAM_THE_THIRD_WAY 1
 #ifdef DO_GET_PROGRAM_THE_THIRD_WAY
 // this is actually the first way, but it's compatible with the third way:
 const DSSI_Program_Descriptor *
