@@ -40,6 +40,7 @@
 
 #include <gtk/gtk.h>
 #include <ladspa.h>
+#include <dssi.h>
 #include <lo/lo.h>
 
 #include <fcntl.h>  /* -FIX- just for lo_server_set_nonblocking() */
@@ -192,6 +193,10 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
         }
 
         return 0;
+
+    } else if (!strcmp(&argv[0]->s, DSSI_PROJECT_DIRECTORY_KEY)) {
+
+	//!!! Set the default directory for future file selections
 
     } else {
 

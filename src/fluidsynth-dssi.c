@@ -407,6 +407,8 @@ fsd_cleanup(LADSPA_Handle handle)
 
 #define DEFAULT_SF2PATH "/usr/local/share/sf2:/usr/share/sf2"
 
+static char *projectDirectory = NULL;
+
 static char *
 locate_soundfont(const char *origpath)
 {
@@ -428,6 +430,13 @@ locate_soundfont(const char *origpath)
 	    path = (char *)malloc(strlen(DEFAULT_SF2PATH) + strlen(home) + 6);
 	    sprintf(path, "%s/sf2:%s", home, DEFAULT_SF2PATH);
 	}
+    }
+
+    if (projectDirectory) {
+	origPath = path;
+	path = (char *)malloc(strlen(origPath) + strlen(projectDirectory) + 2);
+	sprintf(path, "%s:%s", projectDirectory, origPath);
+	free(origPath);
     }
 
     origPath = path;
@@ -561,6 +570,19 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
         fsd_synth.gain = new_gain;
         
 	/* dssi.h says return NULL for success, not an informational string */
+	return NULL;
+
+    } else if (!strcmp(key, DSSI_PROJECT_DIRECTORY_KEY)) {
+
+	if (projectDirectory) {
+	    free(projectDirectory);
+	}
+	if (value) {
+	    projectDirectory = strdup(value);
+	} else {
+	    projectDirectory = NULL;
+	}
+
 	return NULL;
     }
 
