@@ -1,0 +1,13 @@
+2004!FIX! v0.1.0
+ * Added minimal GTK+ GUI.
+ * Assume DSSI v0.3.
+
+20040623 v0.0.2
+ * Added support for per-instance soundfont selection.
+ * Changed from rendering directly into the output buffers, to
+     always rendering into 16-byte aligned temporary buffers then
+     copying to the output, in case libfluidsynth.* was compiled
+     with SSE support.
+ * Added mutex protection of fluidsynth structures between audio and
+     control threads.
+

@@ -1,0 +1,66 @@
+                              FluidSynth-DSSI
+                              ===============
+                    A software synthesizer plugin  for the
+                        Disposable Soft Synth Interface
+
+NOTE
+====
+This is an ALPHA snapshot.  Please do not redistribute.
+
+Introduction
+============
+This package is a !FIX! implementation of a FluidSynth DSSI plugin,
+capable of sharing in-memory soundfont data between multiple plugin
+instances.
+
+Requirements
+============
+You need to have the following installed:
+
+   liblo 0.5 or 0.6
+   fluidsynth 1.0.3 (including libfluidsynth)
+   DSSI, ALSA, LADSPA, and JACK
+
+You must also have the fluidsynth 1.0.3 source code unpacked
+somewhere accessible.
+
+Installation
+============
+Edit the Makefile, then do 'make'.  There is no 'make install' yet.
+
+Operation
+=========
+!FIX! There's a GUI now!
+
+!FIX! available 'configure' messages:
+
+   dssi_osc_send -C <osc-url> load /usr/share/sf2/soundfont.sf2
+
+   dssi_osc_send -C <osc-url> gain 0.5
+
+!FIX! note that gain is global to all the fs instances, so you better
+send the same gain to each instance or thing may not be repeatable...
+
+Each instance may use only one soundfont at a time, but when
+multiple instances use the same soundfont, it is only loaded once.
+
+Example
+=======
+1. Start JACK.
+
+2. Run the dssi_example_host, starting 16 FluidSynth-DSSI instances,
+    one for each MIDI channel:
+
+    $ DSSI_PATH=/home/smbolton/src/fluidsynth-dssi-0.1.0 sudo ./dssi_example_host -16 fluidsynth-dssi.so
+
+3. Load a soundfont for each instance:
+
+    $ for ee in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+    > do dssi_osc_send -C osc.udp://localhost:19383/dssi/fluidsynth-dssi/FluidSynth-DSSI/chan$ee \
+    >      load /t/soundfonts/Reality_GMGS.sf2
+    > done
+
+4. Make some noise:
+
+    $ pmidi -p128:0 /t/smf/simpsons_theme.mid
+
