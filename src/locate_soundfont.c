@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include <unistd.h>
 
 #define DEFAULT_SF2PATH "/usr/local/share/sf2:/usr/share/sf2"
@@ -87,3 +88,86 @@ fsd_locate_soundfont_file(const char *origpath, const char *projectDirectory)
     return NULL;
 }
 
+int
+fsd_sf2_compare(const void *a, const void *b)
+{
+    const char *s1 = *(const char **)a;
+    const char *s2 = *(const char **)b;
+    return strcasecmp(s1, s2);
+}    
+
+char **
+fsd_get_known_soundfonts(const char *projectDirectory, int *rn)
+{
+    int n = 0;
+    int s = 0;
+    char **list = 0;
+    char *sf2path, *path, *origPath, *element;
+    DIR *subdir;
+    struct dirent *entry;
+    int i;
+
+    sf2path = getenv("SF2_PATH");
+    if (sf2path) path = strdup(sf2path);
+    else {
+	char *home = getenv("HOME");
+	if (!home) path = strdup(DEFAULT_SF2PATH);
+	else {
+	    path = (char *)malloc(strlen(DEFAULT_SF2PATH) + strlen(home) + 6);
+	    sprintf(path, "%s/sf2:%s", home, DEFAULT_SF2PATH);
+	}
+    }
+
+    if (projectDirectory) {
+	origPath = path;
+	path = (char *)malloc(strlen(origPath) + strlen(projectDirectory) + 2);
+	sprintf(path, "%s:%s", projectDirectory, origPath);
+	free(origPath);
+    }
+
+    origPath = path;
+
+    while ((element = strtok(path, ":")) != 0) {
+
+	path = 0;
+
+	if (element[0] != '/') {
+	    /* DEBUG_DSSI("fluidsynth-dssi: Ignoring relative element %s in path\n", element); */
+	    continue;
+	}
+
+	if (!(subdir = opendir(element))) {
+	    continue;
+	}
+
+	while ((entry = readdir(subdir))) {
+	    
+	    if (entry->d_name[0] == '.') continue;
+
+	    if (strlen(entry->d_name) > 4 &&
+		!strcasecmp(entry->d_name + strlen(entry->d_name) - 4, ".sf2")) {
+		
+		for (i = 0; i < n; ++i) {
+		    if (!strcmp(entry->d_name, list[i])) break;
+		}
+		if (i == n) {
+		    if (i == s) {
+			s += 100;
+			list = realloc(list, s * sizeof(char *));
+		    }
+		    list[n] = strdup(entry->d_name);
+		    ++n;
+		}
+	    }
+	}
+    }
+
+    *rn = n;
+    free(origPath);
+
+    if (n > 0) {
+	qsort(list, n, sizeof(char *), fsd_sf2_compare);
+    }
+
+    return list;
+}

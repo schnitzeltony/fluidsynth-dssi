@@ -51,6 +51,8 @@
 char *fsd_locate_soundfont_file(const char *origpath,
                                 const char *projectDirectory);
 
+char **fsd_get_known_soundfonts(const char *projectDirectory, int *rn);
+
 /* ==== global variables ==== */
 
 char *     osc_self_url;
@@ -84,6 +86,7 @@ GtkWidget *file_selection;
 GtkWidget *notice_window;
 GtkWidget *notice_label_1;
 GtkWidget *notice_label_2;
+GtkWidget *choose_soundfont_combo;
 
 int internal_gui_update_only = 0;
 int host_requested_quit = 0;
@@ -332,7 +335,7 @@ on_delete_event_wrapper( GtkWidget *widget, GdkEvent *event, gpointer data )
 }
 
 void
-on_select_soundfont_button_press(GtkWidget *widget, gpointer data)
+on_load_soundfont_button_press(GtkWidget *widget, gpointer data)
 {
     if (soundfont_filename) {
         gtk_file_selection_set_filename(GTK_FILE_SELECTION(file_selection),
@@ -404,6 +407,9 @@ on_file_selection_ok( GtkWidget *widget, gpointer data )
         gtk_label_set_text (GTK_LABEL (notice_label_2), filename);
         gtk_widget_show(notice_window);
 
+    } else {
+	gtk_entry_set_text(GTK_ENTRY(GTK_COMBO(choose_soundfont_combo)->entry),
+			   "(other)");
     }
 }
 
@@ -476,6 +482,35 @@ on_polyphony_slider_change(GtkWidget *widget, gpointer data)
     snprintf(buffer, 10, "%d", polyphony);
     lo_send(osc_host_address, osc_configure_path, "ss",
             DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony", buffer);
+}
+
+void
+on_soundfont_combo_changed(GtkWidget *widget, gpointer data)
+{
+    char *filename =
+	(char *)gtk_entry_get_text(GTK_ENTRY(GTK_COMBO(data)->entry));
+    char *path;
+
+    if (!strcmp(filename, "(other)")) return;
+
+    path = fsd_locate_soundfont_file(filename, project_directory);
+
+    if (!path) {
+        gtk_label_set_text (GTK_LABEL (notice_label_1), "Unable to find the selected soundfont!");
+        gtk_label_set_text (GTK_LABEL (notice_label_2), filename);
+        gtk_widget_show(notice_window);
+	free(path);
+	return;
+    }
+
+    if (!load_soundfont(path)) {
+
+        gtk_label_set_text (GTK_LABEL (notice_label_1), "Unable to load the selected soundfont!");
+        gtk_label_set_text (GTK_LABEL (notice_label_2), path);
+        gtk_widget_show(notice_window);
+    }
+
+    free(path);
 }
 
 void
@@ -632,9 +667,15 @@ create_main_window (const char *tag)
   GtkWidget *polyphony_scale;
   GtkWidget *key_scale;
   GtkWidget *velocity_scale;
+  GtkWidget *frame6;
+  GtkWidget *table7;
+  GtkWidget *choose_soundfont_label;
   GtkWidget *hbox1;
-  GtkWidget *select_soundfont_button;
-  GtkWidget *test_note_button;
+  GtkWidget *load_soundfont_button;
+  GtkWidget *test_note_button; 
+  GList *sf_items = NULL;
+  char **list;
+  int i, n;
 
   main_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_object_set_data (GTK_OBJECT (main_window), "main_window", main_window);
@@ -647,7 +688,7 @@ create_main_window (const char *tag)
   gtk_widget_show (vbox4);
   gtk_container_add (GTK_CONTAINER (main_window), vbox4);
 
-  frame2 = gtk_frame_new ("Soundfont");
+  frame2 = gtk_frame_new ("SoundFont");
   gtk_widget_ref (frame2);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "frame2", frame2,
                             (GtkDestroyNotify) gtk_widget_unref);
@@ -685,7 +726,7 @@ create_main_window (const char *tag)
                             (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (preset_clist);
   gtk_container_add (GTK_CONTAINER (scrolledwindow1), preset_clist);
-  gtk_widget_set_usize (preset_clist, 300, 100);
+  gtk_widget_set_usize (preset_clist, 300, 150);
   gtk_clist_set_column_width (GTK_CLIST (preset_clist), 0, 80);
   gtk_clist_set_column_width (GTK_CLIST (preset_clist), 1, 80);
   gtk_clist_set_column_width (GTK_CLIST (preset_clist), 2, 80);
@@ -838,6 +879,48 @@ create_main_window (const char *tag)
   gtk_scale_set_digits (GTK_SCALE (velocity_scale), 0);
     gtk_range_set_update_policy (GTK_RANGE (velocity_scale), GTK_UPDATE_DELAYED);
 
+  frame6 = gtk_frame_new ("SoundFonts in SF2 Path");
+  gtk_widget_ref (frame6);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "frame6", frame6,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (frame6);
+  gtk_box_pack_start (GTK_BOX (vbox4), frame6, FALSE, FALSE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame6), 5);
+
+  table7 = gtk_table_new (2, 2, FALSE);
+  gtk_widget_ref (table7);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "table7", table7,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (table7);
+  gtk_container_add (GTK_CONTAINER (frame6), table7);
+  gtk_container_set_border_width (GTK_CONTAINER (table7), 4);
+/*
+  choose_soundfont_label = gtk_label_new ("SoundFont:  ");
+  gtk_widget_ref (choose_soundfont_label);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "choose_soundfont_label", choose_soundfont_label,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (choose_soundfont_label);
+  gtk_table_attach (GTK_TABLE (table7), choose_soundfont_label, 0, 1, 0, 1,
+                    (GtkAttachOptions) (GTK_FILL),
+                    (GtkAttachOptions) (0), 0, 0);
+*/
+  choose_soundfont_combo = gtk_combo_new ();
+  sf_items = g_list_append(sf_items, "(other)");
+  list = fsd_get_known_soundfonts(project_directory, &n);
+  for (i = 0; i < n; ++i) {
+      sf_items = g_list_append(sf_items, strdup(list[i]));
+  }
+  gtk_combo_set_popdown_strings (GTK_COMBO (choose_soundfont_combo), sf_items);
+  gtk_entry_set_editable(GTK_COMBO(choose_soundfont_combo)->entry, FALSE);
+  if (n > 0) {
+      gtk_widget_show (choose_soundfont_combo);
+  } else {
+      gtk_widget_hide (frame6);
+  }
+  gtk_table_attach (GTK_TABLE (table7), choose_soundfont_combo, 1, 2, 0, 1,
+                    (GtkAttachOptions) (GTK_EXPAND | GTK_FILL),
+                    (GtkAttachOptions) (GTK_FILL), 0, 0);
+
   hbox1 = gtk_hbox_new (FALSE, 40);
   gtk_widget_ref (hbox1);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "hbox1", hbox1,
@@ -845,13 +928,13 @@ create_main_window (const char *tag)
   gtk_widget_show (hbox1);
   gtk_box_pack_start (GTK_BOX (vbox4), hbox1, FALSE, FALSE, 0);
 
-  select_soundfont_button = gtk_button_new_with_label ("Select Soundfont");
-  gtk_widget_ref (select_soundfont_button);
-  gtk_object_set_data_full (GTK_OBJECT (main_window), "select_soundfont_button", select_soundfont_button,
+  load_soundfont_button = gtk_button_new_with_label ("Load SoundFont...");
+  gtk_widget_ref (load_soundfont_button);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "load_soundfont_button", load_soundfont_button,
                             (GtkDestroyNotify) gtk_widget_unref);
-  gtk_widget_show (select_soundfont_button);
-  gtk_box_pack_start (GTK_BOX (hbox1), select_soundfont_button, FALSE, FALSE, 0);
-  gtk_container_set_border_width (GTK_CONTAINER (select_soundfont_button), 8);
+  gtk_widget_show (load_soundfont_button);
+  gtk_box_pack_start (GTK_BOX (hbox1), load_soundfont_button, FALSE, FALSE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (load_soundfont_button), 8);
 
   test_note_button = gtk_button_new_with_label ("Send Test Note");
   gtk_widget_ref (test_note_button);
@@ -869,8 +952,8 @@ create_main_window (const char *tag)
                         (gpointer)gtk_main_quit);
 
     /* connect select soundfont button */
-    gtk_signal_connect (GTK_OBJECT (select_soundfont_button), "clicked",
-                        GTK_SIGNAL_FUNC (on_select_soundfont_button_press),
+    gtk_signal_connect (GTK_OBJECT (load_soundfont_button), "clicked",
+                        GTK_SIGNAL_FUNC (on_load_soundfont_button_press),
                         NULL);
 
     /* connect preset clist */
@@ -885,6 +968,10 @@ create_main_window (const char *tag)
     gtk_signal_connect (GTK_OBJECT(polyphony_adj), "value_changed",
                         GTK_SIGNAL_FUNC(on_polyphony_slider_change),
                         NULL);
+
+    /* connect soundfont combo widget */
+    gtk_signal_connect(GTK_OBJECT(GTK_COMBO(choose_soundfont_combo)->popwin), "hide",
+                        GTK_SIGNAL_FUNC(on_soundfont_combo_changed), choose_soundfont_combo);
 
     /* connect test note widgets */
     gtk_signal_connect (GTK_OBJECT (gtk_range_get_adjustment (GTK_RANGE (key_scale))),
@@ -911,7 +998,7 @@ create_file_selection (const char *tag)
   GtkWidget *cancel_button1;
 
     title = (char *)malloc(strlen(tag) + 20);
-    sprintf(title, "%s - Select Soundfont", tag);
+    sprintf(title, "%s - Select SoundFont", tag);
     file_selection = gtk_file_selection_new (title);
     free(title);
   gtk_object_set_data (GTK_OBJECT (file_selection), "file_selection", file_selection);
