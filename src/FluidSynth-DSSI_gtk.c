@@ -82,13 +82,13 @@ int host_requested_quit = 0;
 /* ==== a couple things that liblo will soon have ==== */
 
 int
-lo_server_get_socket_fd(lo_server *server)
+lo_server_get_socket_fd(lo_server server)
 {
     return *(int *)server;  /* !FIX! ack. _will_ break, but saves us from needing lo_types_internal.h here.*/
 }
 
 int
-lo_server_set_nonblocking(lo_server *server)
+lo_server_set_nonblocking(lo_server server)
 {
     /* make the server socket non-blocking */
     return fcntl(lo_server_get_socket_fd(server), F_SETFL, O_NONBLOCK);
@@ -253,9 +253,18 @@ void
 osc_data_on_socket_callback(gpointer data, gint source,
                             GdkInputCondition condition)
 {
-    lo_server *server = (lo_server *)data;
+    lo_server server = (lo_server)data;
 
     lo_server_recv(server);                                                 
+}
+
+gint
+update_request_timeout_callback(gpointer self_url)
+{
+    /* send our update request */
+    lo_send(osc_host_address, osc_update_path, "s", (char *)self_url);
+
+    return FALSE;  /* don't need to do this again */
 }
 
 /* ==== GTK+ widget callbacks ==== */
@@ -855,6 +864,7 @@ main (int argc, char *argv[])
     char *host, *port, *path, *tmp_url, *self_url;
     lo_server osc_server;
     gint osc_server_socket_tag;
+    gint update_request_timeout_tag;
 
     fprintf(stderr, "fsd-gui starting (pid %d)...\n", getpid());
 
@@ -907,8 +917,10 @@ main (int argc, char *argv[])
                                           osc_data_on_socket_callback,
                                           osc_server);
 
-    /* send our update request */
-    lo_send(osc_host_address, osc_update_path, "s", self_url);
+    /* schedule our update request */
+    update_request_timeout_tag = gtk_timeout_add(50,
+                                                 update_request_timeout_callback,
+                                                 (gpointer)self_url);
 
     /* let GTK+ take it from here */
     gtk_main();
@@ -917,6 +929,7 @@ main (int argc, char *argv[])
     DEBUG_DSSI("fsd-gui: yep, we got to the cleanup!\n");
 
     /* GTK+ cleanup */
+    gtk_timeout_remove(update_request_timeout_tag);
     gdk_input_remove(osc_server_socket_tag);
 
     /* say bye-bye */

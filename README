@@ -31,14 +31,16 @@ Requirements
 ============
 You need to have the following installed:
 
-   - liblo 0.5 or 0.6
-   - fluidsynth 1.0.3 (including libfluidsynth)
+   - liblo 0.5 or later
+   - fluidsynth 1.0.3 or later (specifically, the fluidsynth headers
+       and libfluidsynth)
    - LADSPA
-   - a DSSI-capable host, such as Rosegarden or the example host
+   - a DSSI-capable host, such as Rosegarden or the jack-dssi-host
        included with this package.
 
-You must also have the fluidsynth 1.0.3 source code unpacked
-somewhere accessible.
+You must also have the fluidsynth source code unpacked somewhere
+accessible (make sure it is the same version as what you have
+installed.)
 
 Installation
 ============
@@ -77,7 +79,7 @@ OSC message to the plugin:
    dssi_osc_send -C <osc-url> gain 0.5
 
 Note that synth.gain is a global parameter, so you'd best send the
-same gain the every instance if you want predictable results.
+same gain to every instance if you want predictable results.
 
 Example
 =======
@@ -86,7 +88,7 @@ Example
 2. Run the dssi_example_host, starting 16 FluidSynth-DSSI instances,
     one for each MIDI channel:
 
-    $ DSSI_PATH=/home/smbolton/src/fluidsynth-dssi-0.1.0 sudo ./dssi_example_host -16 fluidsynth-dssi.so
+    $ DSSI_PATH=/home/smbolton/src/fluidsynth-dssi-0.1.0 sudo jack-dssi-host -16 fluidsynth-dssi.so
 
 3. Load a soundfont for each instance.  You may do this using the
     GUI, or via the command line:

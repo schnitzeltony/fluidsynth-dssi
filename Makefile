@@ -35,7 +35,7 @@ install: all
 	mkdir -p $(PREFIX)/lib/dssi/fluidsynth-dssi
 	cp fluidsynth-dssi.so $(PREFIX)/lib/dssi/
 	cp FluidSynth-DSSI_gtk $(PREFIX)/lib/dssi/fluidsynth-dssi/
-	test -x $(PREFIX)/bin/jack-dssi-host && ln -s jack-dssi-host $(PREFIX)/bin/fluidsynth-dssi
+	test -x $(PREFIX)/bin/jack-dssi-host && ln -sf jack-dssi-host $(PREFIX)/bin/fluidsynth-dssi
 
 clean:
 	rm -f *.o

@@ -1,3 +1,6 @@
+20041005
+ * GUI now waits to send OSC update request from inside gtk_main()
+
 20040715 DSSI v0.4 release
  * Added minimal GTK+ GUI.
  * Require DSSI v0.4.
