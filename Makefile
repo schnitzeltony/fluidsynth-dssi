@@ -6,13 +6,13 @@
 
 # 1. Define the following to point to the unpacked fluidsynth source:
 
-FLUID=../../fluidsynth-1.0.3
-FLUID_SRC=$(FLUID)/src
-FLUID_INCLUDE=$(FLUID)/include
+FLUID ?= ../../fluidsynth-1.0.3
+FLUID_SRC = $(FLUID)/src
+FLUID_INCLUDE = $(FLUID)/include
 
 # 2. Set this to where you want fluidsynth-dssi installed:
 
-PREFIX = /usr/local
+PREFIX ?= /usr/local
 
 # 3. Adjust anything here as needed:
 
@@ -35,6 +35,7 @@ install: all
 	mkdir -p $(PREFIX)/lib/dssi/fluidsynth-dssi
 	cp fluidsynth-dssi.so $(PREFIX)/lib/dssi/
 	cp FluidSynth-DSSI_gtk $(PREFIX)/lib/dssi/fluidsynth-dssi/
+	test -x $(PREFIX)/bin/jack-dssi-host && ln -s jack-dssi-host $(PREFIX)/bin/fluidsynth-dssi
 
 clean:
 	rm -f *.o
