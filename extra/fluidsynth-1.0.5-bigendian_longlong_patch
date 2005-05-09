@@ -1,0 +1,27 @@
+diff -ur fluidsynth-CVS-20050502/src/fluid_phase.h fluidsynth-new/src/fluid_phase.h
+--- fluidsynth-CVS-20050502/src/fluid_phase.h	2003-03-11 08:57:36.000000000 -0800
++++ fluidsynth-new/src/fluid_phase.h	2005-05-02 10:37:10.000000000 -0700
+@@ -22,6 +22,9 @@
+ #ifndef _FLUID_PHASE_H
+ #define _FLUID_PHASE_H
+ 
++#if HAVE_CONFIG_H
++#include "config.h"
++#endif
+ 
+ /*
+  *  phase
+@@ -51,8 +54,13 @@
+ typedef union {
+     struct{
+ 	/* Note, that the two 32-bit ints form a 64-bit int! */
++#ifdef WORDS_BIGENDIAN
++	sint32 index;
++	uint32 fract;
++#else
+ 	uint32 fract;
+ 	sint32 index;
++#endif
+     } b32;
+ #ifdef USE_LONGLONG
+     long long b64;
