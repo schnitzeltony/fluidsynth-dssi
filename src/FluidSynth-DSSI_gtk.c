@@ -1,6 +1,6 @@
 /* FluidSynth DSSI software synthesizer GUI
  *
- * Copyright (C) 2004 Sean Bolton and others.
+ * Copyright (C) 2004-2005 Sean Bolton and others.
  *
  * Portions of this file may have come from FluidSynth, copyright
  * (C) 2003 Peter Hanappe and others.
@@ -38,20 +38,39 @@
 #include <unistd.h>
 #include <math.h>
 
+#include <glib.h>
 #include <gtk/gtk.h>
 #include <ladspa.h>
 #include <dssi.h>
 #include <lo/lo.h>
 
-#include "FluidSynth-DSSI_gtk.h"
+#include "load_soundfont_metadata.h"
 
-#define FSD_MAX_POLYPHONY  256  /* -FIX- should be in a header shared with fluidsynth-dssi.c */
+/* ==== debugging ==== */
+
+/* DSSI interface debugging -- choose one: */
+#define DEBUG_DSSI(fmt...)
+// #define DEBUG_DSSI(fmt...) { fprintf(stderr, fmt); }
+
+/* audio debugging -- define if desired: */
+// #define DEBUG_AUDIO
+
+/* ==== end of debugging ==== */
+
+/* -FIX- These should be in a header file shared with fluidsynth-dssi.c: */
+#define FSD_MAX_POLYPHONY     256
+#define FSD_DEFAULT_POLYPHONY 256
 
 /* in locate_soundfont.c: */
 char *fsd_locate_soundfont_file(const char *origpath,
                                 const char *projectDirectory);
 
 char **fsd_get_known_soundfonts(const char *projectDirectory, int *rn);
+
+/* forward: */
+int  load_soundfont(char *filename);
+void update_from_program_select(int bank, int program);
+void rebuild_preset_clist(SFData *sfdata);
 
 /* ==== global variables ==== */
 
@@ -81,7 +100,9 @@ GtkWidget *main_window;
 GtkWidget *soundfont_label;
 GtkWidget *preset_clist;
 GtkObject *gain_adj;
+#ifdef USE_AUGMENTED_FLUIDSYNTH_API
 GtkObject *polyphony_adj;
+#endif
 GtkWidget *file_selection;
 GtkWidget *notice_window;
 GtkWidget *notice_label_1;
@@ -221,6 +242,7 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
 
         return 0;
 
+#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     } else if (!strcmp(&argv[0]->s, DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony")) {
 
         int new_poly = atol(&argv[1]->s);
@@ -237,6 +259,7 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
         internal_gui_update_only = 0;
 
         return 0;
+#endif
 
     } else if (!strcmp(&argv[0]->s, DSSI_PROJECT_DIRECTORY_KEY)) {
 
@@ -359,16 +382,11 @@ load_soundfont(char *filename)
 {
     SFData *sfdata;
 
-    if ((sfdata = sfload_file(filename))) {
-        /* close the soundfont, since we have all we need here */
-        if (sfdata->sffd) {
-            fclose (sfdata->sffd);
-            sfdata->sffd = NULL;
-        }
+    if ((sfdata = fsd_sfload_file(filename))) {
 
         /* free the old soundfont data, if any */
         if (soundfont_data)
-            sfont_free_data(soundfont_data);
+            fsd_sfont_free_data(soundfont_data);
 
         soundfont_data = sfdata;
         if (soundfont_filename)
@@ -432,7 +450,7 @@ on_preset_selection(GtkWidget      *clist,
         return;
     }
 
-    if (row < preset_count) {
+    if ((unsigned long)row < preset_count) {
 
         DEBUG_DSSI("fsd-gui on_preset_selection: preset %d selected => bank %d program %d\n",
                    row, presets_by_row[row]->bank, presets_by_row[row]->prenum);
@@ -466,6 +484,7 @@ on_gain_slider_change(GtkWidget *widget, gpointer data)
             DSSI_GLOBAL_CONFIGURE_PREFIX "gain", buffer);
 }
 
+#ifdef USE_AUGMENTED_FLUIDSYNTH_API
 void
 on_polyphony_slider_change(GtkWidget *widget, gpointer data)
 {
@@ -483,6 +502,7 @@ on_polyphony_slider_change(GtkWidget *widget, gpointer data)
     lo_send(osc_host_address, osc_configure_path, "ss",
             DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony", buffer);
 }
+#endif
 
 void
 on_soundfont_combo_changed(GtkWidget *widget, gpointer data)
@@ -565,7 +585,7 @@ on_notice_dismiss( GtkWidget *widget, gpointer data )
 void
 update_from_program_select(int bank, int program)
 {
-    int i;
+    unsigned long i;
 
     /* find the preset */
     for (i = 0; i < preset_count; i++) {
@@ -595,7 +615,7 @@ rebuild_preset_clist(SFData *sfdata)
     SFPreset *sfpreset;
     char bank[6], program[4], name[31];
     char *data[3] = { bank, program, name };
-    int i;
+    unsigned long i;
 
     /* DEBUG_DSSI("fsd-gui: rebuild_preset_clist called\n"); */
 
@@ -663,13 +683,14 @@ create_main_window (const char *tag)
   GtkWidget *label6;
   GtkWidget *label7;
   GtkWidget *gain_scale;
-  GtkWidget *label8;
+#ifdef USE_AUGMENTED_FLUIDSYNTH_API
+  GtkWidget *polyphony_label;
   GtkWidget *polyphony_scale;
+#endif
   GtkWidget *key_scale;
   GtkWidget *velocity_scale;
   GtkWidget *frame6;
   GtkWidget *table7;
-  GtkWidget *choose_soundfont_label;
   GtkWidget *hbox1;
   GtkWidget *load_soundfont_button;
   GtkWidget *test_note_button; 
@@ -688,7 +709,38 @@ create_main_window (const char *tag)
   gtk_widget_show (vbox4);
   gtk_container_add (GTK_CONTAINER (main_window), vbox4);
 
-  frame2 = gtk_frame_new ("SoundFont");
+  frame6 = gtk_frame_new ("SoundFonts in SF2 Path");
+  gtk_widget_ref (frame6);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "frame6", frame6,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_box_pack_start (GTK_BOX (vbox4), frame6, FALSE, FALSE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame6), 5);
+
+  table7 = gtk_table_new (2, 2, FALSE);
+  gtk_widget_ref (table7);
+  gtk_object_set_data_full (GTK_OBJECT (main_window), "table7", table7,
+                            (GtkDestroyNotify) gtk_widget_unref);
+  gtk_container_add (GTK_CONTAINER (frame6), table7);
+  gtk_container_set_border_width (GTK_CONTAINER (table7), 4);
+
+  choose_soundfont_combo = gtk_combo_new ();
+  sf_items = g_list_append(sf_items, "(other)");
+  list = fsd_get_known_soundfonts(project_directory, &n);
+  for (i = 0; i < n; ++i) {
+      sf_items = g_list_append(sf_items, strdup(list[i]));
+  }
+  gtk_combo_set_popdown_strings (GTK_COMBO (choose_soundfont_combo), sf_items);
+  gtk_entry_set_editable(GTK_ENTRY(GTK_COMBO(choose_soundfont_combo)->entry), FALSE);
+  gtk_table_attach (GTK_TABLE (table7), choose_soundfont_combo, 1, 2, 0, 1,
+                    (GtkAttachOptions) (GTK_EXPAND | GTK_FILL),
+                    (GtkAttachOptions) (GTK_FILL), 0, 0);
+  if (n > 0) {
+      gtk_widget_show (choose_soundfont_combo);
+      gtk_widget_show (table7);
+      gtk_widget_show (frame6);
+  }
+
+  frame2 = gtk_frame_new ("Current SoundFont");
   gtk_widget_ref (frame2);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "frame2", frame2,
                             (GtkDestroyNotify) gtk_widget_unref);
@@ -793,16 +845,17 @@ create_main_window (const char *tag)
   gtk_scale_set_digits (GTK_SCALE (gain_scale), 0);
     gtk_range_set_update_policy (GTK_RANGE (gain_scale), GTK_UPDATE_DELAYED);
 
-    label8 = gtk_label_new ("polyphony");
-    gtk_widget_ref (label8);
-    gtk_object_set_data_full (GTK_OBJECT (main_window), "label8", label8,
+#ifdef USE_AUGMENTED_FLUIDSYNTH_API
+    polyphony_label = gtk_label_new ("polyphony");
+    gtk_widget_ref (polyphony_label);
+    gtk_object_set_data_full (GTK_OBJECT (main_window), "polyphony_label", polyphony_label,
                               (GtkDestroyNotify) gtk_widget_unref);
-    gtk_widget_show (label8);
-    gtk_table_attach (GTK_TABLE (table1), label8, 0, 1, 1, 2,
+    gtk_widget_show (polyphony_label);
+    gtk_table_attach (GTK_TABLE (table1), polyphony_label, 0, 1, 1, 2,
                       (GtkAttachOptions) (GTK_FILL),
                       (GtkAttachOptions) (0), 0, 0);
-    gtk_misc_set_alignment (GTK_MISC (label8), 0, 0.5);
-    gtk_misc_set_padding (GTK_MISC (label8), 5, 0);
+    gtk_misc_set_alignment (GTK_MISC (polyphony_label), 0, 0.5);
+    gtk_misc_set_padding (GTK_MISC (polyphony_label), 5, 0);
 
     polyphony_adj = gtk_adjustment_new (FSD_MAX_POLYPHONY, 1, FSD_MAX_POLYPHONY+10, 1, 10, 10);
     polyphony_scale = gtk_hscale_new (GTK_ADJUSTMENT (polyphony_adj));
@@ -816,6 +869,7 @@ create_main_window (const char *tag)
     gtk_scale_set_value_pos (GTK_SCALE (polyphony_scale), GTK_POS_RIGHT);
     gtk_scale_set_digits (GTK_SCALE (polyphony_scale), 0);
     gtk_range_set_update_policy (GTK_RANGE (polyphony_scale), GTK_UPDATE_DELAYED);
+#endif
 
   frame5 = gtk_frame_new ("Test Note");
   gtk_widget_ref (frame5);
@@ -879,48 +933,6 @@ create_main_window (const char *tag)
   gtk_scale_set_digits (GTK_SCALE (velocity_scale), 0);
     gtk_range_set_update_policy (GTK_RANGE (velocity_scale), GTK_UPDATE_DELAYED);
 
-  frame6 = gtk_frame_new ("SoundFonts in SF2 Path");
-  gtk_widget_ref (frame6);
-  gtk_object_set_data_full (GTK_OBJECT (main_window), "frame6", frame6,
-                            (GtkDestroyNotify) gtk_widget_unref);
-  gtk_widget_show (frame6);
-  gtk_box_pack_start (GTK_BOX (vbox4), frame6, FALSE, FALSE, 0);
-  gtk_container_set_border_width (GTK_CONTAINER (frame6), 5);
-
-  table7 = gtk_table_new (2, 2, FALSE);
-  gtk_widget_ref (table7);
-  gtk_object_set_data_full (GTK_OBJECT (main_window), "table7", table7,
-                            (GtkDestroyNotify) gtk_widget_unref);
-  gtk_widget_show (table7);
-  gtk_container_add (GTK_CONTAINER (frame6), table7);
-  gtk_container_set_border_width (GTK_CONTAINER (table7), 4);
-/*
-  choose_soundfont_label = gtk_label_new ("SoundFont:  ");
-  gtk_widget_ref (choose_soundfont_label);
-  gtk_object_set_data_full (GTK_OBJECT (main_window), "choose_soundfont_label", choose_soundfont_label,
-                            (GtkDestroyNotify) gtk_widget_unref);
-  gtk_widget_show (choose_soundfont_label);
-  gtk_table_attach (GTK_TABLE (table7), choose_soundfont_label, 0, 1, 0, 1,
-                    (GtkAttachOptions) (GTK_FILL),
-                    (GtkAttachOptions) (0), 0, 0);
-*/
-  choose_soundfont_combo = gtk_combo_new ();
-  sf_items = g_list_append(sf_items, "(other)");
-  list = fsd_get_known_soundfonts(project_directory, &n);
-  for (i = 0; i < n; ++i) {
-      sf_items = g_list_append(sf_items, strdup(list[i]));
-  }
-  gtk_combo_set_popdown_strings (GTK_COMBO (choose_soundfont_combo), sf_items);
-  gtk_entry_set_editable(GTK_COMBO(choose_soundfont_combo)->entry, FALSE);
-  if (n > 0) {
-      gtk_widget_show (choose_soundfont_combo);
-  } else {
-      gtk_widget_hide (frame6);
-  }
-  gtk_table_attach (GTK_TABLE (table7), choose_soundfont_combo, 1, 2, 0, 1,
-                    (GtkAttachOptions) (GTK_EXPAND | GTK_FILL),
-                    (GtkAttachOptions) (GTK_FILL), 0, 0);
-
   hbox1 = gtk_hbox_new (FALSE, 40);
   gtk_widget_ref (hbox1);
   gtk_object_set_data_full (GTK_OBJECT (main_window), "hbox1", hbox1,
@@ -965,9 +977,11 @@ create_main_window (const char *tag)
     gtk_signal_connect (GTK_OBJECT(gain_adj), "value_changed",
                         GTK_SIGNAL_FUNC(on_gain_slider_change),
                         NULL);
+#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     gtk_signal_connect (GTK_OBJECT(polyphony_adj), "value_changed",
                         GTK_SIGNAL_FUNC(on_polyphony_slider_change),
                         NULL);
+#endif
 
     /* connect soundfont combo widget */
     gtk_signal_connect(GTK_OBJECT(GTK_COMBO(choose_soundfont_combo)->popwin), "hide",
@@ -1209,7 +1223,7 @@ main (int argc, char *argv[])
 
     /* free soundfont data, if any */
     if (soundfont_data)
-        sfont_free_data(soundfont_data);
+        fsd_sfont_free_data(soundfont_data);
     if (soundfont_filename)
         free(soundfont_filename);
     if (project_directory)

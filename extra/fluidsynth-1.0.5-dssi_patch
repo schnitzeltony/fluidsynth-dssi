@@ -89,7 +89,7 @@ diff -ur fluidsynth-1.0.5/src/fluid_synth.c fluidsynth-1.0.5-patched/src/fluid_s
  			      0.2f, 0.0f, 10.0f, 0, 
  			      (fluid_num_update_t) fluid_synth_update_gain, synth);
 +  fluid_settings_register_int(settings, "synth.polyphony", 
-+			      256, 16, 4096, 0,
++			      synth->polyphony, 16, 4096, 0,
 +			      (fluid_int_update_t) fluid_synth_update_polyphony,
 +                              synth);
  

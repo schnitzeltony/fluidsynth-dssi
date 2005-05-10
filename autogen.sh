@@ -21,6 +21,8 @@ echo "=============== running libtoolize --force --copy" &&
     $LIBTOOLIZE --force --copy &&
     echo "=============== running aclocal" &&
     aclocal $ACLOCALARGS &&
+    echo "=============== running autoheader" &&
+    autoheader &&
     echo "=============== running automake --add-missing --foreign" &&
     automake --add-missing --foreign &&
     echo "=============== running autoconf" &&

@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(FluidSynth-DSSI, 0.9.1alpha2, musound-at-jps-dot-net)
+AC_INIT(FluidSynth-DSSI, 0.9.1, dssi-devel@lists.sourceforge.net)
 
 AC_CONFIG_SRCDIR(src/fluidsynth-dssi.c)
 AM_INIT_AUTOMAKE
@@ -33,23 +33,32 @@ fi
 AM_CONDITIONAL(BUILD_GUI, test "x${with_gtk}" != 'xno')
 echo "GTK support: $with_gtk"
 
-dnl OS specific checks
-case "${host_os}" in
-darwin*)
-  darwin=yes
-  PKG_CHECK_MODULES(ALSA, libdssialsacompat)
-  ;;
-*)
-  darwin=no
-  ;;
-esac
-AM_CONDITIONAL(DARWIN, test x$darwin = xyes)
+dnl Require ALSA or libdssialsacompat
+PKG_CHECK_MODULES(ALSA, alsa, alsa=ALSA, alsa=no)
+if test "x${alsa}" = xno ; then
+  PKG_CHECK_MODULES(ALSA, libdssialsacompat, alsa=libdssialsacompat,
+                    AC_MSG_ERROR([neither ALSA nor libdssialsacompat found]))
+fi
+if test "x${alsa}" = xALSA ; then
+  unset ALSA_LIBS  # we only need the headers
+fi
 
 dnl Require DSSI, liblo, and fluidsynth
 PKG_CHECK_MODULES(MODULE, dssi >= 0.9 liblo >= 0.12)
 PKG_CHECK_MODULES(FLUID, fluidsynth >= 1.0.3)
 AC_SUBST(FLUID_CFLAGS)
 AC_SUBST(FLUID_LIBS)
+
+dnl OS specific checks
+case "${host_os}" in
+darwin*)
+  darwin=yes
+  ;;
+*)
+  darwin=no
+  ;;
+esac
+AM_CONDITIONAL(DARWIN, test x$darwin = xyes)
 
 dnl Check for a patched libfluidsynth
 AC_ARG_ENABLE(augmented-fluidsynth-api,

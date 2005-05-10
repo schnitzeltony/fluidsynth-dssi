@@ -1,3 +1,15 @@
+20050510 CVS smbolton
+ * Version bump to 0.9.1.
+ * Moved FluidSynth-DSSI into its own SourceForge CVS module.
+ * configure.ac improvements.
+
+20050424 v0.9.1alpha2 smbolton
+ * Changed to an API-conforming but less efficient implementation
+     in the plugin using fluid_synth_nwrite_float().
+ * Bundled the soundfont metadata loading code necessary to make
+     the GUI independent of libfluidsynth.
+ * Added automake/autoconf build system.
+
 20041109
  * Implemented global polyphony setting.
  * GUI resizing fix.

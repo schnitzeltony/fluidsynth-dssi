@@ -3,7 +3,3 @@
 ? Have the default bank for channel 9 (10) be 128 so it
     automatically plays drums?  No, that's so GM-ish....
 
-? Detect if the plugin is NOT being run on a SSE-or-similar capable
-    processor, or if the output buffers are already 16-byte aligned,
-    and if so, skip the extra buffer copy?
-

@@ -5,51 +5,105 @@
 
 Introduction
 ============
-The files in this directory are an implementation of the FluidSynth
-soundfont-playing software synthesizer as a DSSI plugin. It makes
-use of DSSI's run_multiple_synths() interface to allow sharing of
-resources between multiple plugin instances -- soundfont data is
-shared between instances, and FluidSynth's usual voice allocation
-methods are applied across multiple instances as if each were a
-FluidSynth channel.
+FluidSynth-DSSI is an implementation of the FluidSynth soundfont-
+playing software synthesizer as a plugin for the Disposable Soft Synth
+Interface (DSSI).  DSSI is a plugin API for software instruments
+(soft synths) with user interfaces, permitting them to be hosted
+in-process by audio applications.  More information on DSSI can be
+found at:
 
-FluidSynth-DSSI uses the FluidSynth library for all soundfont
-handling and synthesis functions.  However, because of the
-architecture differences between DSSI and FluidSynth, this could not
-be done using only the canonical FluidSynth API functions.  As a
-result, the FluidSynth source code is needed during
-FluidSynth-DSSI's compilation to provide access to the non-API
-library functions.
+  http://dssi.sourceforge.net/
 
-FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2004
+FluidSynth-DSSI makes use of DSSI's run_multiple_synths() interface
+to allow sharing of resources (like enormous soundfonts) between
+multiple plugin instances -- soundfont data is shared between
+instances, and FluidSynth's usual voice allocation methods are
+applied across multiple instances as if each were a FluidSynth
+channel.
+
+FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2005
 under the GNU General Public License, version 2 or later.  See the
 enclosed file COPYING for details.
 
 FluidSynth itself is copyright (c)2003 Peter Hanappe and others,
-also under the GNU General Public License.
+under the GNU Library General Public License.
 
 Requirements
 ============
 You need to have the following installed:
 
-   - liblo 0.12 or later
-   - fluidsynth 1.0.3 or later (specifically, the fluidsynth headers
-       and libfluidsynth)
-   - LADSPA
-   - a DSSI-capable host, such as Rosegarden or the jack-dssi-host
-       included with this package.
+    - DSSI version 0.9 or greater, available from the
+        dssi.sourceforge.net address above.
 
-You must also have the fluidsynth source code unpacked somewhere
-accessible (make sure it is the same version as what you have
-installed.)
+    - liblo version 0.12 or later, a library implementing the Open
+        Sound Control protocol, available at:
+
+        http://plugin.org.uk/liblo/
+
+    - the FluidSynth library and header files.  FluidSynth-DSSI has
+        been tested with FluidSynth 1.0.5, and should work with
+        1.0.3 as well.
+
+    - the LADSPA v1.x SDK.
+
+    - the ALSA headers (DSSI plugins use ALSA structures, but not
+        the actual drivers, so you don't necessarily need the
+        drivers installed.)  Users of non-Linux system can use
+        libdssialsacompat, available at:
+
+        http://home.jps.net/~musound/
+
+    - pkgconfig with PKG_CONFIG_PATH set appropriately to pick up
+        DSSI, liblo, and fluidsynth (plus libdssialsacompat if used).
+
+    - GTK+ version 1.2 or 2.x.  (If GTK+ is not found, the plugin
+        will be built without the GUI.)
+
+    - a working DSSI host.  Xsynth-DSSI has been tested with
+        jack-dssi-host, available in the DSSI distribution, and with
+        ghostess, available at:
+
+        http://home.jps.net/~musound/
+
+    - automake 1.7 and autoconf 2.59 or better if you wish to
+        recreate the build files.
 
 Installation
 ============
-Edit the Makefile, then do 'make' and 'make install'.  The following
-files are installed:
+The generic installation instructions in the enclosed file INSTALL
+aren't particularly helpful, so try this instead:
+
+1. Unpack the tar file.
+
+2. Make sure PKG_CONFIG_PATH is set correctly to locate the
+    dssi.pc and liblo.pc pkgconfig files.  On many systems, this
+    will be:
+
+    $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+    $ export PKG_CONFIG_PATH
+
+3. 'cd' into the package directory and execute './configure'.
+    configure will add '-Wall' and my favorite optimizations to
+    CFLAGS for you if you don't include any '-Wall' or '-O' options.
+
+4. If you wish to change the maximum number of simultaneous
+    instances supported by FluidSynth-DSSI (currently 16), edit the
+    file src/fluidsynth-dssi.h and change the FSD_CHANNEL_COUNT
+    definition.
+
+3. Enable debugging information if you desire: edit the files
+    src/fluidsynth-dssi.h and src/FluidSynth-DSSI_gtk.c, and define
+    DEBUG_DSSI or DEBUG_AUDIO as explained in the comments.
+
+4. Do 'make'.  Hopefully it should build without warnings (or
+    errors.)
+
+5. 'make install' will install the following:
 
     $(PREFIX)/lib/dssi/fluidsynth-dssi.so
     $(PREFIX)/lib/dssi/fluidsynth-dssi/FluidSynth-DSSI_gtk
+
+Feedback on your experiences building FluidSynth-DSSI is appreciated.
 
 Operation
 =========
@@ -68,9 +122,7 @@ The available soundfont presets will be displayed in the 'Preset'
 window.  Clicking on one will select that preset.
 
 Under 'Global Settings', the 'gain (dB)' setting affects the output
-level of all running FluidSynth-DSSI instances.  The 'polyphony'
-setting sets the maximum number of voices that will be played by all
-instances.
+level of all running FluidSynth-DSSI instances.
 
 Test notes may be generated using the 'Send Test Note' button.  You
 may select the pitch and velocity of the note using the 'Test Note'
@@ -101,4 +153,81 @@ Example
 4. Make some noise:
 
     $ pmidi -p128:0 /t/smf/simpsons_theme.mid
+
+Polyphony Management
+====================
+Fluidsynth (up through version 1.0.5 at least) presents DSSI with a
+catch-22: Fluidsynth requires the polyphony limit be set before the
+synth is instantiated, while DSSI requires the synth be instantiated
+before the FluidSynth-DSSI plugin can receive any information about
+the user's desired polyphony limit.
+
+There is a patch supplied with FluidSynth-DSSI,
+extra/fluidsynth-1.0.5-dssi_patch, which adds several functions to
+the fluidsynth API, allowing the polyphony limit to be set after the
+synth is instantiated.  If you apply this patch (which hopefully
+will be included in future versions of Fluidsynth) to the FluidSynth
+1.0.5 source, then build FluidSynth-DSSI, the new API functions will
+be detected automatically and used.
+
+With the patch, there will be a 'polyphony' setting under 'Global
+Settings' in the FluidSynth-DSSI GUI.  This 'polyphony' setting sets
+the maximum number of voices that will be played by all instances.
+
+An example of using the patch:
+
+    $ tar xpzf fluidsynth-1.0.5.tar.gz
+    $ tar xpzf fluidsynth-dssi-0.9.1.tar.gz
+    $ cd fluidsynth-1.0.5
+    $ patch -p1 <../fluidsynth-dssi-0.9.1/extra/fluidsynth-1.0.5-dssi_patch
+    patching file include/fluidsynth/synth.h
+    patching file src/fluid_cmd.c
+    patching file src/fluid_cmd.h
+    patching file src/fluid_synth.c
+    patching file src/fluid_synth.h
+    $ ./configure && make && make install
+
+    [ lots of output ]
+
+    $ cd ../fluidsynth-dssi-0.9.1
+    $ ./configure
+
+    [ lots of output ]
+
+    checking for fluid_synth_set_polyphony in -lfluidsynth... yes
+    using augmented fluidsynth API
+
+    [ lots more output ]
+
+    $ make && make install
+
+The configure output lines 'checking for fluid_synth_set_polyphony
+in -lfluidsynth... yes' and 'using augmented fluidsynth API' shown
+above indicate that the patched API was detected.
+
+The fluid_synth_nwrite_float() Bug
+==================================
+Fluidsynth versions up through at least 1.0.5 have a bug in the
+fluid_synth_nwrite_float() function that FluidSynth-DSSI uses, which
+prevents it from working correctly with block sizes less than 64. If
+you've applied the extra/fluidsynth-1.0.5-dssi_patch to your
+libfluidsynth, then you may configure FluidSynth-DSSI with the
+'--disable-nwrite-float-workaround' flag.  This assumes
+fluid_synth_nwrite_float() works correctly, and saves a buffer copy
+per process cycle.
+
+(Note that all known DSSI hosts split process blocks into various
+sizes as part of their MIDI event processing, so even if, for
+example, you're running with a JACK buffer size greater than 64,
+you'll still need either the workaround enabled, or a patched
+fluidsynth, to avoid distorted sound.)
+
+The longlong Bug
+================
+Fluidsynth versions up through at least 1.0.5 have a bug in the code
+enabled by the '--enable-longlong' configure option, so that it will
+only work correctly on little-endian (e.g. x86) systems. There is
+another patch included with FluidSynth-DSSI,
+extra/fluidsynth-1.0.5-bigendian_longlong_patch, which fixes the
+code to work on big-endian (e.g. PowerPC) systems.
 
