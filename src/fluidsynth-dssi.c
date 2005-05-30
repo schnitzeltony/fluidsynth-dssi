@@ -520,7 +520,9 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
 
         if (instance->soundfont) {
             fsd_release_soundfont(instance->soundfont);
-            instance->soundfont = NULL;
+            if (have_mutex_lock) {
+                instance->soundfont = NULL;
+            }
         }
 
         instance->soundfont = fsd_get_soundfont(sfpath);

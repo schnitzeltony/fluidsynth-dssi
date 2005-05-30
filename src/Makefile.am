@@ -41,3 +41,12 @@ endif
 
 fluidsynth_dssi_la_LIBADD = -lm @FLUID_LIBS@
 
+# create symlinks for the plugin to jack-dssi-host
+install-exec-hook:
+	if test -x $(DESTDIR)$(bindir)/jack-dssi-host$(EXEEXT) ; then \
+	  cd $(DESTDIR)$(bindir) ; \
+	  if ! test -x ./fluidsynth-dssi$(EXEEXT) ; then \
+	    $(LN_S) jack-dssi-host$(EXEEXT) fluidsynth-dssi$(EXEEXT) ; \
+	  fi ; \
+	fi
+
