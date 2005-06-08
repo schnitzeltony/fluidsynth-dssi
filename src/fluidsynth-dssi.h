@@ -45,15 +45,6 @@
 
 /* ==== end of debugging ==== */
 
-/* ==== things we need from FluidSynth, that aren't in the API ==== */
-
-#ifndef USE_AUGMENTED_FLUIDSYNTH_API
-/* Damn, we really do need this: */
-int fluid_synth_all_sounds_off(fluid_synth_t* synth, int chan);
-#endif
-
-/* ==== fluidsynth-dssi ==== */
-
 #define FSD_MAX_CHANNELS  255  /* FluidSynth's virtual channel limit (n.b. NO_CHANNEL in fluid_voice.h) */
 
 /* FSD_CHANNEL_COUNT is the number of channels FluidSynth-DSSI tells

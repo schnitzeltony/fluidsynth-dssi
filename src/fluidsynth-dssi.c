@@ -73,7 +73,18 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
                         unsigned long sample_count, snd_seq_event_t **events,
                         unsigned long *event_counts);
 
-/* ---- mutual exclusion ---- */
+/* ---- FluidSynth helper functions ---- */
+
+/*
+ * fsd_chan_all_voices_off
+ *
+ * turn off all voices on channel immediately
+ */
+static inline void
+fsd_chan_all_voices_off(int channel)
+{
+    fluid_synth_cc(fsd_synth.fluid_synth, channel, 0x78, 0);  /* 0x78 = MIDI 'all sound off' control change */
+}
 
 /*
  * fsd_all_voices_off
@@ -86,9 +97,11 @@ fsd_all_voices_off(void)
     int i;
 
     for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
-        fluid_synth_all_sounds_off(fsd_synth.fluid_synth, i);
+        fsd_chan_all_voices_off(i);
     }
 }
+
+/* ---- mutual exclusion ---- */
 
 static inline int
 fsd_mutex_trylock(void)
@@ -416,7 +429,7 @@ fsd_deactivate(LADSPA_Handle handle)
     fsd_instance_t *instance = (fsd_instance_t *)handle;
 
     /* stop all voices on channel immediately */
-    fluid_synth_all_sounds_off(fsd_synth.fluid_synth, instance->channel);
+    fsd_chan_all_voices_off(instance->channel);
 }
 
 /*
@@ -809,11 +822,10 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
     }
 
 #ifdef NWRITE_FLOAT_WORKS_CORRECTLY
-    /* If fluid_synth_nwrite_float() worked correctly for block lengths less
-     * than FLUID_BUFSIZE (64), we could just do the following, and save a
-     * copy. But it doesn't in fluidsynth versions up to at least 1.0.5.
-     * (Note that if the block length is _always_ 32, the bug is not triggered,
-     * luckily, simply because 64 - 32 = 32 (see the code)). */
+    /* fluid_synth_nwrite_float() works correctly in FluidSynth beginning
+     * with CVS as of 2005/6/7 (and I would assume releases > 1.0.5).
+     * So here we can just have it write our output buffers directly,
+     * without the extra copy. */
 
     next_pending_event_tick = 0;
     while (samples_done < sample_count) {
@@ -858,10 +870,13 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
 
 #else /* fluid_synth_nwrite_float() doesn't work correctly */
 
-    /* Because of the fluid_synth_nwrite_float() bug, we have to always call
-     * it with block lengths that are multiples of FLUID_BUFSIZE (64),
-     * buffering any odd block remains for the next run_multiple_synths()
-     * call ourself.  Ick.  */
+    /* Because fluid_synth_nwrite_float() doesn't work correctly in FluidSynth
+     * versions <= 1.0.5 (including CVS before 2005/6/7) for block lengths less
+     * than FLUID_BUFSIZE (64), we have to always call it with block lengths
+     * that are multiples of 64, buffering any odd block remains for the next
+     * run_multiple_synths() call ourself.
+     * (Note that if the block length is _always_ 32, the bug is not triggered,
+     * luckily, simply because 64 - 32 = 32 (see the code)). */
 
     /* First, if there is any data remaining from a previous render burst,
      * copy it from our temporary buffers. */

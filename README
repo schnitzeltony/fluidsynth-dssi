@@ -41,8 +41,8 @@ You need to have the following installed:
         http://plugin.org.uk/liblo/
 
     - the FluidSynth library and header files.  FluidSynth-DSSI has
-        been tested with FluidSynth 1.0.5, and should work with
-        1.0.3 as well.
+        been tested with FluidSynth 1.0.5 (and CVS as of 2005/6/8),
+        and should work with 1.0.3 as well.
 
     - the LADSPA v1.x SDK.
 
@@ -156,30 +156,35 @@ Example
 
 Polyphony Management
 ====================
-Fluidsynth (up through version 1.0.5 at least) presents DSSI with a
-catch-22: Fluidsynth requires the polyphony limit be set before the
-synth is instantiated, while DSSI requires the synth be instantiated
-before the FluidSynth-DSSI plugin can receive any information about
-the user's desired polyphony limit.
+If you're using a FluidSynth version after 1.0.5 (including CVS
+versions from 2005/6/7 onward), or an earlier version with the patch
+described below, then you will have the ability to manage the
+maximum polyphony used by FluidSynth-DSSI.  There will be a
+'polyphony' setting under 'Global Settings' in the FluidSynth-DSSI
+GUI, which sets the maximum number of voices that will be played by
+all instances.
 
-There is a patch supplied with FluidSynth-DSSI,
-extra/fluidsynth-1.0.5-dssi_patch, which adds several functions to
-the fluidsynth API, allowing the polyphony limit to be set after the
-synth is instantiated.  If you apply this patch (which hopefully
-will be included in future versions of Fluidsynth) to the FluidSynth
-1.0.5 source, then build FluidSynth-DSSI, the new API functions will
+Fluidsynth up through version 1.0.5 presented DSSI with a catch-22:
+Fluidsynth required the polyphony limit be set before the synth is
+instantiated, while DSSI requires the synth be instantiated before
+the FluidSynth-DSSI plugin can receive any information about the
+user's desired polyphony limit.
+
+A patch supplied with FluidSynth-DSSI, extra/fluidsynth-1.0.5-dssi_patch,
+adds the needed functionality to FluidSynth, so that the polyphony
+limit to be set after the synth is instantiated. This patch was
+incorporated into the FluidSynth CVS on 2005/6/7.
+
+If you apply this patch to the FluidSynth 1.0.5 source (or use the
+CVS version), then build FluidSynth-DSSI, the new API functions will
 be detected automatically and used.
-
-With the patch, there will be a 'polyphony' setting under 'Global
-Settings' in the FluidSynth-DSSI GUI.  This 'polyphony' setting sets
-the maximum number of voices that will be played by all instances.
 
 An example of using the patch:
 
     $ tar xpzf fluidsynth-1.0.5.tar.gz
-    $ tar xpzf fluidsynth-dssi-0.9.1.tar.gz
+    $ tar xpzf fluidsynth-dssi-0.9.1.1.tar.gz
     $ cd fluidsynth-1.0.5
-    $ patch -p1 <../fluidsynth-dssi-0.9.1/extra/fluidsynth-1.0.5-dssi_patch
+    $ patch -p1 <../fluidsynth-dssi-0.9.1.1/extra/fluidsynth-1.0.5-dssi_patch
     patching file include/fluidsynth/synth.h
     patching file src/fluid_cmd.c
     patching file src/fluid_cmd.h
@@ -189,7 +194,7 @@ An example of using the patch:
 
     [ lots of output ]
 
-    $ cd ../fluidsynth-dssi-0.9.1
+    $ cd ../fluidsynth-dssi-0.9.1.1
     $ ./configure
 
     [ lots of output ]
@@ -207,11 +212,12 @@ above indicate that the patched API was detected.
 
 The fluid_synth_nwrite_float() Bug
 ==================================
-Fluidsynth versions up through at least 1.0.5 have a bug in the
+Fluidsynth versions up through 1.0.5 have a bug in the
 fluid_synth_nwrite_float() function that FluidSynth-DSSI uses, which
 prevents it from working correctly with block sizes less than 64. If
 you've applied the extra/fluidsynth-1.0.5-dssi_patch to your
-libfluidsynth, then you may configure FluidSynth-DSSI with the
+libfluidsynth, or are using FluidSynth CVS source later than
+2005/6/7, then you may configure FluidSynth-DSSI with the
 '--disable-nwrite-float-workaround' flag.  This assumes
 fluid_synth_nwrite_float() works correctly, and saves a buffer copy
 per process cycle.
@@ -219,8 +225,8 @@ per process cycle.
 (Note that all known DSSI hosts split process blocks into various
 sizes as part of their MIDI event processing, so even if, for
 example, you're running with a JACK buffer size greater than 64,
-you'll still need either the workaround enabled, or a patched
-fluidsynth, to avoid distorted sound.)
+you'll still need either the workaround enabled, or a fixed
+libfluidsynth, to avoid distorted sound.)
 
 The longlong Bug
 ================
