@@ -1,14 +1,14 @@
                               FluidSynth-DSSI
                               ===============
-                    A software synthesizer plugin  for the
-                        Disposable Soft Synth Interface
+                    A software synthesizer plugin for the
+                         DSSI Soft Synth Interface
 
 Introduction
 ============
 FluidSynth-DSSI is an implementation of the FluidSynth soundfont-
-playing software synthesizer as a plugin for the Disposable Soft Synth
-Interface (DSSI).  DSSI is a plugin API for software instruments
-(soft synths) with user interfaces, permitting them to be hosted
+playing software synthesizer as a plugin for the DSSI Soft Synth
+Interface.  DSSI is a plugin API for software instruments (soft
+synths) with user interfaces, permitting them to be hosted
 in-process by audio applications.  More information on DSSI can be
 found at:
 
@@ -21,11 +21,11 @@ instances, and FluidSynth's usual voice allocation methods are
 applied across multiple instances as if each were a FluidSynth
 channel.
 
-FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2005
+FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2008
 under the GNU General Public License, version 2 or later.  See the
 enclosed file COPYING for details.
 
-FluidSynth itself is copyright (c)2003 Peter Hanappe and others,
+FluidSynth itself is copyright (c)2006 Peter Hanappe and others,
 under the GNU Library General Public License.
 
 Requirements
@@ -40,9 +40,10 @@ You need to have the following installed:
 
         http://plugin.org.uk/liblo/
 
-    - the FluidSynth library and header files.  FluidSynth-DSSI has
-        been tested with FluidSynth 1.0.5 (and CVS as of 2005/6/8),
-        and should work with 1.0.3 as well.
+    - the FluidSynth library and header files, version 1.0.3 or later.
+        FluidSynth-DSSI will have additional capability (run-time
+        polyphony setting and more efficient operation) if FluidSynth
+        version 1.0.6 or later is used.
 
     - the LADSPA v1.x SDK.
 
@@ -51,7 +52,7 @@ You need to have the following installed:
         drivers installed.)  Users of non-Linux system can use
         libdssialsacompat, available at:
 
-        http://home.jps.net/~musound/
+        http://smbolton.com/linux.html
 
     - pkgconfig with PKG_CONFIG_PATH set appropriately to pick up
         DSSI, liblo, and fluidsynth (plus libdssialsacompat if used).
@@ -63,7 +64,7 @@ You need to have the following installed:
         jack-dssi-host, available in the DSSI distribution, and with
         ghostess, available at:
 
-        http://home.jps.net/~musound/
+        http://smbolton.com/linux.html
 
     - automake 1.7 and autoconf 2.59 or better if you wish to
         recreate the build files.
@@ -124,6 +125,12 @@ window.  Clicking on one will select that preset.
 Under 'Global Settings', the 'gain (dB)' setting affects the output
 level of all running FluidSynth-DSSI instances.
 
+If you're using FluidSynth version 1.0.6 or later, then you will
+have the ability to manage the maximum polyphony used by
+FluidSynth-DSSI.  There will be a 'polyphony' setting under 'Global
+Settings' in the FluidSynth-DSSI GUI, which sets the maximum number
+of voices that will be played by all instances.
+
 Test notes may be generated using the 'Send Test Note' button.  You
 may select the pitch and velocity of the note using the 'Test Note'
 sliders.
@@ -143,7 +150,8 @@ Example
     $ DSSI_PATH=/usr/local/lib/dssi sudo jack-dssi-host -16 fluidsynth-dssi.so
 
 3. Load a soundfont for each instance.  You may do this using the
-    GUI, or via the command line:
+    GUI, or via the command line (replace the '19383' with the port
+    number your DSSI host is using):
 
     $ for ee in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
     > do dssi_osc_send -C osc.udp://localhost:19383/dssi/fluidsynth-dssi/FluidSynth-DSSI/chan$ee \
@@ -154,86 +162,21 @@ Example
 
     $ pmidi -p128:0 /t/smf/simpsons_theme.mid
 
-Polyphony Management
-====================
-If you're using a FluidSynth version after 1.0.5 (including CVS
-versions from 2005/6/7 onward), or an earlier version with the patch
-described below, then you will have the ability to manage the
-maximum polyphony used by FluidSynth-DSSI.  There will be a
-'polyphony' setting under 'Global Settings' in the FluidSynth-DSSI
-GUI, which sets the maximum number of voices that will be played by
-all instances.
-
-Fluidsynth up through version 1.0.5 presented DSSI with a catch-22:
-Fluidsynth required the polyphony limit be set before the synth is
-instantiated, while DSSI requires the synth be instantiated before
-the FluidSynth-DSSI plugin can receive any information about the
-user's desired polyphony limit.
-
-A patch supplied with FluidSynth-DSSI, extra/fluidsynth-1.0.5-dssi_patch,
-adds the needed functionality to FluidSynth, so that the polyphony
-limit to be set after the synth is instantiated. This patch was
-incorporated into the FluidSynth CVS on 2005/6/7.
-
-If you apply this patch to the FluidSynth 1.0.5 source (or use the
-CVS version), then build FluidSynth-DSSI, the new API functions will
-be detected automatically and used.
-
-An example of using the patch:
-
-    $ tar xpzf fluidsynth-1.0.5.tar.gz
-    $ tar xpzf fluidsynth-dssi-0.9.1.1.tar.gz
-    $ cd fluidsynth-1.0.5
-    $ patch -p1 <../fluidsynth-dssi-0.9.1.1/extra/fluidsynth-1.0.5-dssi_patch
-    patching file include/fluidsynth/synth.h
-    patching file src/fluid_cmd.c
-    patching file src/fluid_cmd.h
-    patching file src/fluid_synth.c
-    patching file src/fluid_synth.h
-    $ ./configure && make && make install
-
-    [ lots of output ]
-
-    $ cd ../fluidsynth-dssi-0.9.1.1
-    $ ./configure
-
-    [ lots of output ]
-
-    checking for fluid_synth_set_polyphony in -lfluidsynth... yes
-    using augmented fluidsynth API
-
-    [ lots more output ]
-
-    $ make && make install
-
-The configure output lines 'checking for fluid_synth_set_polyphony
-in -lfluidsynth... yes' and 'using augmented fluidsynth API' shown
-above indicate that the patched API was detected.
-
-The fluid_synth_nwrite_float() Bug
-==================================
-Fluidsynth versions up through 1.0.5 have a bug in the
+Bugs in FluidSynth prior to version 1.0.6
+=========================================
+FluidSynth versions up through 1.0.5 have a bug in the
 fluid_synth_nwrite_float() function that FluidSynth-DSSI uses, which
-prevents it from working correctly with block sizes less than 64. If
-you've applied the extra/fluidsynth-1.0.5-dssi_patch to your
-libfluidsynth, or are using FluidSynth CVS source later than
-2005/6/7, then you may configure FluidSynth-DSSI with the
-'--disable-nwrite-float-workaround' flag.  This assumes
-fluid_synth_nwrite_float() works correctly, and saves a buffer copy
-per process cycle.
+prevents it from working correctly with block sizes less than 64.
+FluidSynth-DSSI will still work with these earlier versions, but
+working around the bug requires an extra buffer copy per process
+cycle, so it is not as efficient as when FluidSynth versions 1.0.6
+or later are used.
 
-(Note that all known DSSI hosts split process blocks into various
-sizes as part of their MIDI event processing, so even if, for
-example, you're running with a JACK buffer size greater than 64,
-you'll still need either the workaround enabled, or a fixed
-libfluidsynth, to avoid distorted sound.)
-
-The longlong Bug
-================
-Fluidsynth versions up through at least 1.0.5 have a bug in the code
-enabled by the '--enable-longlong' configure option, so that it will
-only work correctly on little-endian (e.g. x86) systems. There is
-another patch included with FluidSynth-DSSI,
-extra/fluidsynth-1.0.5-bigendian_longlong_patch, which fixes the
-code to work on big-endian (e.g. PowerPC) systems.
+FluidSynth versions up through 1.0.5 have a bug in the code enabled
+by the '--enable-longlong' configure option, so that it will only
+work correctly on little-endian (e.g. x86) systems. It is
+recommended that users of big-endian (e.g. PowerPC) systems upgrade
+to 1.0.6 or later. (FluidSynth 1.0.8 no longer has the
+'--enable-longlong' configure option, and uses the long long type by
+default.)
 

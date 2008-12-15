@@ -33,11 +33,7 @@ fluidsynth_dssi_la_SOURCES = \
 
 fluidsynth_dssi_la_CFLAGS = @FLUID_CFLAGS@
 
-if DARWIN
 fluidsynth_dssi_la_LDFLAGS = -module -avoid-version
-else
-fluidsynth_dssi_la_LDFLAGS = -module -avoid-version -Wc,-nostartfiles
-endif
 
 fluidsynth_dssi_la_LIBADD = -lm @FLUID_LIBS@
 

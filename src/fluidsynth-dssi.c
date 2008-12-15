@@ -1,6 +1,6 @@
 /* FluidSynth DSSI software synthesizer plugin
  *
- * Copyright (C) 2004-2005 Sean Bolton and others.
+ * Copyright (C) 2004-2008 Sean Bolton and others.
  *
  * Portions of this file may have come from Peter Hanappe's
  * Fluidsynth, copyright (C) 2003 Peter Hanappe and others.
@@ -19,8 +19,8 @@
  *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the Free
- * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307, USA.
+ * Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301 USA.
  */
 
 #define _BSD_SOURCE    1
@@ -453,8 +453,14 @@ fsd_cleanup(LADSPA_Handle handle)
         fsd_synth.channel_map[instance->channel] = NULL;
 
 #ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-        if (instance->tmpbuf_l) free(instance->tmpbuf_l);
-        if (instance->tmpbuf_r) free(instance->tmpbuf_r);
+        if (instance->tmpbuf_l) {
+            free(instance->tmpbuf_l);
+            instance->tmpbuf_l = NULL;
+        }
+        if (instance->tmpbuf_r) {
+            free(instance->tmpbuf_r);
+            instance->tmpbuf_r = NULL;
+        }
 #endif
     }
 
@@ -923,7 +929,11 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
         /* render the burst */
         burst_size = next_pending_event_tick - samples_done;
         burst_size = (burst_size + fsd_synth.fluid_bufsize - 1) &
-                         ~(fsd_synth.fluid_bufsize - 1);
+                         ~(fsd_synth.fluid_bufsize - 1);   /* round up to nearest whole bufsize */
+        if (burst_size > sample_count - samples_done)      /* don't overshoot sample_count */
+            burst_size -= fsd_synth.fluid_bufsize;
+        if (burst_size == 0)                               /* leave loop if too close to end */
+            break;
         if (burst_size > FSD_MAX_BURST_SIZE)
             burst_size = FSD_MAX_BURST_SIZE;
         
@@ -964,20 +974,12 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
     if (samples_done < sample_count) {
         unsigned long samples_remaining = (sample_count - samples_done);
 
-        /* silence temporary buffers */
-        for (i = 0; i < instance_count; i++) {
-            memset(instances[i]->tmpbuf_l, 0,
-                   fsd_synth.fluid_bufsize * sizeof(LADSPA_Data));
-            memset(instances[i]->tmpbuf_r, 0,
-                   fsd_synth.fluid_bufsize * sizeof(LADSPA_Data));
-        }
-
         /* render one burst */
         for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
             if (fsd_synth.channel_map[i]) {
                 fsd_instance_t *instance = fsd_synth.channel_map[i];
-                l_outputs[instance->channel] = instance->tmpbuf_l + samples_done;
-                r_outputs[instance->channel] = instance->tmpbuf_r + samples_done;
+                l_outputs[instance->channel] = instance->tmpbuf_l;
+                r_outputs[instance->channel] = instance->tmpbuf_r;
             }
         }
 
@@ -1039,7 +1041,11 @@ const DSSI_Descriptor *dssi_descriptor(unsigned long index)
     }
 }
 
+#ifdef __GNUC__
+__attribute__((constructor)) void init()
+#else
 void _init()
+#endif
 {
     int i;
     char **port_names;
@@ -1113,7 +1119,11 @@ void _init()
     }
 }
 
+#ifdef __GNUC__
+__attribute__((destructor)) void fini()
+#else
 void _fini()
+#endif
 {
     if (fsd_LADSPA_descriptor) {
         free((LADSPA_PortDescriptor *) fsd_LADSPA_descriptor->PortDescriptors);

@@ -1,3 +1,21 @@
+20081214 CVS smbolton
+ * Version bump to 0.9.1.2.
+ * Bug fix from James McDermott for the broken-nwrite_float
+     code in fluidsynth-dssi.c when used with unusual sample
+     counts.
+ * Removed the FluidSynth source patches in extra/, removed
+     references to the patches in README, and reworked configure.ac
+     to simply check that the FluidSynth version is >=1.0.6 before
+     setting USE_AUGMENTED_FLUIDSYNTH_API and
+     NWRITE_FLOAT_WORKS_CORRECTLY.
+ * Added '-test' option to FluidSynth-DSSI_gtk.c to allow testing
+     the GUI without a host.
+ * Fixed to use gcc/glibc 'constructor' and 'destructor' attributes
+    instead of the deprecated _init() and _fini() functions (needed
+    for OS X 10.4 'Tiger').
+ * Added code in FluidSynth-DSSI_gtk.c to silently ignore the
+    'sample-rate' method.
+
 20050608 CVS smbolton
  * Version bump to 0.9.1.1.
  * Updated code, patch, and docs to match Josh Green's FluidSynth

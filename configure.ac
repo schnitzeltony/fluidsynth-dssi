@@ -1,13 +1,12 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(FluidSynth-DSSI, 0.9.1.1, dssi-devel@lists.sourceforge.net)
+AC_INIT(FluidSynth-DSSI, 0.9.1.2, dssi-devel@lists.sourceforge.net)
 
 AC_CONFIG_SRCDIR(src/fluidsynth-dssi.c)
 AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
 
 AC_PROG_CC
-AC_HEADER_STDC
 AC_ENABLE_STATIC(no)
 AC_ENABLE_SHARED(yes)
 AC_PROG_LIBTOOL
@@ -15,7 +14,25 @@ AC_PROG_LIBTOOL
 AC_C_BIGENDIAN
 
 dnl check for other headers we need
-AC_CHECK_HEADERS(math.h stdarg.h pthread.h dirent.h)
+AC_CHECK_HEADERS(math.h stdarg.h pthread.h dirent.h ladspa.h)
+
+dnl Check for FluidSynth
+PKG_CHECK_MODULES(FLUID, fluidsynth >= 1.0.3)
+AC_SUBST(FLUID_CFLAGS)
+AC_SUBST(FLUID_LIBS)
+dnl Check for a recent libfluidsynth
+have106=no
+PKG_CHECK_EXISTS(fluidsynth >= 1.0.6, have106=yes)
+if test "x${have106}" = xyes ; then
+  echo "using FluidSynth polyphony-setting API"
+  AC_DEFINE(USE_AUGMENTED_FLUIDSYNTH_API, 1, [Define to 1 if your libfluidsynth supports polyphony setting])
+  echo "using fluid_synth_nwrite_float() directly"
+  AC_DEFINE(NWRITE_FLOAT_WORKS_CORRECTLY, 1, [Define to 1 if fluid_synth_nwrite_float() works correctly])
+else
+  echo "FluidSynth polyphony-setting API not available"
+  echo "using fluid_synth_nwrite_float() workaround"
+  echo "(You may wish to upgrade your FluidSynth to version 1.0.6 or later)"
+fi
 
 dnl Check for GTK+
 AC_ARG_WITH(gtk2, AC_HELP_STRING([--with-gtk2], [use GTK+ 2.0 default=yes]),
@@ -43,11 +60,8 @@ if test "x${alsa}" = xALSA ; then
   unset ALSA_LIBS  # we only need the headers
 fi
 
-dnl Require DSSI, liblo, and fluidsynth
+dnl Require DSSI, liblo
 PKG_CHECK_MODULES(MODULE, dssi >= 0.9 liblo >= 0.12)
-PKG_CHECK_MODULES(FLUID, fluidsynth >= 1.0.3)
-AC_SUBST(FLUID_CFLAGS)
-AC_SUBST(FLUID_LIBS)
 
 dnl OS specific checks
 case "${host_os}" in
@@ -59,35 +73,6 @@ darwin*)
   ;;
 esac
 AM_CONDITIONAL(DARWIN, test x$darwin = xyes)
-
-dnl Check for a patched libfluidsynth
-AC_ARG_ENABLE(augmented-fluidsynth-api,
-              AS_HELP_STRING([--enable-augmented-fluidsynth-api],
-              [enable use of fluidsynth polyphony-setting API]),
-              ,
-              AC_CHECK_LIB(fluidsynth, fluid_synth_set_polyphony,
-                           enable_augmented_fluidsynth_api=yes,
-                           enable_augmented_fluidsynth_api=no, $FLUID_LIBS)
-             )
-if test "$enable_augmented_fluidsynth_api" = 'yes'; then
-    echo "using augmented fluidsynth API"
-    AC_DEFINE(USE_AUGMENTED_FLUIDSYNTH_API, 1, [Define to 1 if your libfluidsynth supports polyphony setting])
-else
-    echo "using standard fluidsynth API"
-fi
-
-dnl Check if we should assume fluid_synth_nwrite_float works correctly
-AC_ARG_ENABLE(nwrite-float-workaround,
-              AS_HELP_STRING([--disable-nwrite-float-workaround],
-              [assume fluid_synth_nwrite_float() works correctly]),
-              ,
-              enable_nwrite_float_workaround=yes)
-if test "x${enable_nwrite_float_workaround}" = 'xno'; then
-    echo "assuming fluid_synth_nwrite_float() works correctly"
-    AC_DEFINE(NWRITE_FLOAT_WORKS_CORRECTLY, 1, [Define to 1 if fluid_synth_nwrite_float() works correctly])
-else
-    echo "using fluid_synth_nwrite_float() workaround"
-fi
 
 dnl Use lotsa flags if we have gcc.
 CFLAGS="$CFLAGS $ALSA_CFLAGS $MODULE_CFLAGS"
