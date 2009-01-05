@@ -1,3 +1,6 @@
+20090104 FluidSynth-DSSI v1.0.0 release
+ * Version bump to 1.0.0.
+
 20081214 CVS smbolton
  * Version bump to 0.9.1.2.
  * Bug fix from James McDermott for the broken-nwrite_float

@@ -21,7 +21,7 @@ instances, and FluidSynth's usual voice allocation methods are
 applied across multiple instances as if each were a FluidSynth
 channel.
 
-FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2008
+FluidSynth-DSSI is written by Sean Bolton, and is copyright (c)2009
 under the GNU General Public License, version 2 or later.  See the
 enclosed file COPYING for details.
 
@@ -35,10 +35,11 @@ You need to have the following installed:
     - DSSI version 0.9 or greater, available from the
         dssi.sourceforge.net address above.
 
-    - liblo version 0.12 or later, a library implementing the Open
-        Sound Control protocol, available at:
+    - liblo version 0.12 or later (0.23 or later recommended), a
+        library implementing the Open Sound Control (OSC) protocol,
+        available at:
 
-        http://plugin.org.uk/liblo/
+        http://liblo.sourceforge.net/
 
     - the FluidSynth library and header files, version 1.0.3 or later.
         FluidSynth-DSSI will have additional capability (run-time

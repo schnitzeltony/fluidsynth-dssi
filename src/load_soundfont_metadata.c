@@ -1,6 +1,6 @@
 /* FluidSynth DSSI software synthesizer GUI
  *
- * Copyright (C) 2005 Sean Bolton and others.
+ * Copyright (C) 2005, 2009 Sean Bolton and others.
  *
  * All of this code comes from FluidSynth, copyright (C) 2003 Peter
  * Hanappe and others, which in turn borrows code from GLIB,
@@ -20,8 +20,8 @@
  *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the Free
- * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307, USA.
+ * Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301 USA.
  */
 
 #if HAVE_CONFIG_H
