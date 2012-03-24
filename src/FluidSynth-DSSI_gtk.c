@@ -1,6 +1,6 @@
 /* FluidSynth DSSI software synthesizer GUI
  *
- * Copyright (C) 2004-2008 Sean Bolton and others.
+ * Copyright (C) 2004-2008, 2012 Sean Bolton and others.
  *
  * Portions of this file may have come from FluidSynth, copyright
  * (C) 2003 Peter Hanappe and others.
@@ -1171,7 +1171,7 @@ main (int argc, char *argv[])
     gtk_set_locale ();
     gtk_init (&argc, &argv);
 
-    if (!strcmp(argv[1], "-test")) {
+    if (argc > 1 && !strcmp(argv[1], "-test")) {
         gui_test_mode = 1;
         test_argv[0] = argv[0];
         test_argv[1] = "osc.udp://localhost:9/test/mode";

@@ -1,3 +1,10 @@
+20120324 CVS smbolton
+ * Bug fix to fsd_cleanup() from Rui Nuno Capela, allowing eventual
+     reinstantiation of FluidSynth (sf.net Tracker ID 1990241).
+ * Patch from Albert Graef to pass sysex messages on to FluidSynth,
+     allowing the use of MIDI Tuning Standard.
+ * Fixed plugin to use reentrant strtok_r().
+
 20090104 FluidSynth-DSSI v1.0.0 release
  * Version bump to 1.0.0.
 

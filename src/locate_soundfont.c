@@ -32,7 +32,7 @@ char *
 fsd_locate_soundfont_file(const char *origpath, const char *projectDirectory)
 {
     struct stat statbuf;
-    char *sf2path, *path, *origPath, *element, *eltpath;
+    char *sf2path, *path, *origPath, *element, *context, *eltpath;
     const char *filename;
 
     if (stat(origpath, &statbuf) == 0)
@@ -64,7 +64,7 @@ fsd_locate_soundfont_file(const char *origpath, const char *projectDirectory)
 
     origPath = path;
 
-    while ((element = strtok(path, ":")) != 0) {
+    while ((element = strtok_r(path, ":", &context)) != 0) {
 
 	path = 0;
 

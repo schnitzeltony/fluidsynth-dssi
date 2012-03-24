@@ -1,6 +1,6 @@
 /* FluidSynth DSSI software synthesizer plugin
  *
- * Copyright (C) 2004-2008 Sean Bolton and others.
+ * Copyright (C) 2004-2008, 2012 Sean Bolton and others.
  *
  * Portions of this file may have come from Peter Hanappe's
  * Fluidsynth, copyright (C) 2003 Peter Hanappe and others.
@@ -476,6 +476,8 @@ fsd_cleanup(LADSPA_Handle handle)
         }
         delete_fluid_synth(fsd_synth.fluid_synth);
         delete_fluid_settings(fsd_synth.fluid_settings);
+        fsd_synth.fluid_synth = NULL;
+        fsd_synth.fluid_settings = NULL;
     }
     free(instance);
 }
@@ -771,8 +773,24 @@ fsd_handle_event(fsd_instance_t *instance, snd_seq_event_t *event)
         fluid_synth_pitch_bend(fsd_synth.fluid_synth, instance->channel,
                                event->data.control.value + 8192);
         break;
+      case SND_SEQ_EVENT_SYSEX:	{
+        /* sysex support (needed for MTS tuning messages) */
+        /* contributed by Albert Graef */
+        unsigned char *data = (unsigned char*)event->data.ext.ptr;
+        unsigned int len = event->data.ext.len;
+#if 0   /* enable for debugging output */
+        unsigned int i;
+        fprintf(stderr, "SYSEX:");
+        for (i = 0; i < len; ++i)
+          fprintf(stderr, " %02x", data[i]);
+        fprintf(stderr, "\n");
+#endif
+        /* fluid_synth_sysex() expects the message without the f0 f7 bytes. */
+        fluid_synth_sysex(fsd_synth.fluid_synth, data+1, len-2,
+                          NULL, NULL, NULL, 0);
+        break;
+      }
       /* SND_SEQ_EVENT_PGMCHANGE - shouldn't happen */
-      /* SND_SEQ_EVENT_SYSEX - shouldn't happen */
       /* SND_SEQ_EVENT_CONTROL14? */
       /* SND_SEQ_EVENT_NONREGPARAM? */
       /* SND_SEQ_EVENT_REGPARAM? */
