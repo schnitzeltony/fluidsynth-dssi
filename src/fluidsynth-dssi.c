@@ -786,7 +786,7 @@ fsd_handle_event(fsd_instance_t *instance, snd_seq_event_t *event)
         fprintf(stderr, "\n");
 #endif
         /* fluid_synth_sysex() expects the message without the f0 f7 bytes. */
-        fluid_synth_sysex(fsd_synth.fluid_synth, data+1, len-2,
+        fluid_synth_sysex(fsd_synth.fluid_synth, (char *)data+1, len-2,
                           NULL, NULL, NULL, 0);
         break;
       }
