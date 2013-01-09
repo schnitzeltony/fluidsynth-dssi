@@ -229,7 +229,7 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
 
     } else if (!strcmp(&argv[0]->s, DSSI_GLOBAL_CONFIGURE_PREFIX "gain")) {
 
-        float new_gain = atof(&argv[1]->s);
+        float new_gain = atof(&argv[1]->s);  /* -FIX- locale-dependent, may fail if plugin isn't using similar locale */
 
         if (new_gain <= 0.0f) {
             return 0;  /* gain out of range */
@@ -494,7 +494,7 @@ on_gain_slider_change(GtkWidget *widget, gpointer data)
 
     DEBUG_DSSI("fsd-gui on_gain_slider_change: new gain %f => %f\n", db, gain);
 
-    snprintf(buffer, 10, "%9.6f", gain);
+    snprintf(buffer, 10, "%9.6f", gain); /* -FIX- locale-dependent, may fail if plugin isn't using similar locale */
     lo_send(osc_host_address, osc_configure_path, "ss",
             DSSI_GLOBAL_CONFIGURE_PREFIX "gain", buffer);
 }

@@ -573,7 +573,7 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
 
     } else if (!strcmp(key, DSSI_GLOBAL_CONFIGURE_PREFIX "gain")) {
 
-        float new_gain = atof(value);
+        float new_gain = atof(value); /* -FIX- locale-dependent, may fail if sender isn't using similar locale */
 
         if (new_gain < 0.0000001f || new_gain > 10.0f) {
             return dssi_configure_message("error: out-of-range gain '%s'", value);
