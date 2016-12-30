@@ -39,14 +39,7 @@ AC_ARG_WITH(gtk2, AC_HELP_STRING([--with-gtk2], [use GTK+ 2.0 default=yes]),
             [ if test $withval = "yes"; then try_gtk2=yes ;
               else try_gtk2=no ; fi ], try_gtk2=yes)
 with_gtk=no
-dnl First look for GTK+ 2.x, unless '--without-gtk2' was specified.
-if test "x${try_gtk2}" = 'xyes'; then
-    AM_PATH_GTK_2_0(2.0.0, with_gtk='yes (version 2.0)', with_gtk=no)
-fi
-dnl  No GTK+ 2.x found, look for GTK+ 1.2 instead
-if test "x${with_gtk}" = 'xno'; then
-    AM_PATH_GTK(1.2.0, with_gtk='yes (version 1.2)', AC_MSG_WARN([GUI will not be built because no version of GTK+ was found]))
-fi
+PKG_CHECK_MODULES(GTK, gtk+-2.0, with_gtk=yes, with_gtk=no)
 AM_CONDITIONAL(BUILD_GUI, test "x${with_gtk}" != 'xno')
 echo "GTK support: $with_gtk"
 
