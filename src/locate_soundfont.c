@@ -26,7 +26,7 @@
 #include <dirent.h>
 #include <unistd.h>
 
-#define DEFAULT_SF2PATH "/usr/local/share/sf2:/usr/share/sf2"
+#define DEFAULT_SF2PATH "/usr/local/share/sf2:/usr/share/sf2:/usr/share/soundfonts"
 
 char *
 fsd_locate_soundfont_file(const char *origpath, const char *projectDirectory)
