@@ -17,22 +17,9 @@ dnl check for other headers we need
 AC_CHECK_HEADERS(math.h stdarg.h pthread.h dirent.h ladspa.h)
 
 dnl Check for FluidSynth
-PKG_CHECK_MODULES(FLUID, fluidsynth >= 1.0.3)
+PKG_CHECK_MODULES(FLUID, fluidsynth >= 1.1.6)
 AC_SUBST(FLUID_CFLAGS)
 AC_SUBST(FLUID_LIBS)
-dnl Check for a recent libfluidsynth
-have106=no
-PKG_CHECK_EXISTS(fluidsynth >= 1.0.6, have106=yes)
-if test "x${have106}" = xyes ; then
-  echo "using FluidSynth polyphony-setting API"
-  AC_DEFINE(USE_AUGMENTED_FLUIDSYNTH_API, 1, [Define to 1 if your libfluidsynth supports polyphony setting])
-  echo "using fluid_synth_nwrite_float() directly"
-  AC_DEFINE(NWRITE_FLOAT_WORKS_CORRECTLY, 1, [Define to 1 if fluid_synth_nwrite_float() works correctly])
-else
-  echo "FluidSynth polyphony-setting API not available"
-  echo "using fluid_synth_nwrite_float() workaround"
-  echo "(You may wish to upgrade your FluidSynth to version 1.0.6 or later)"
-fi
 
 dnl Check for GTK+
 AC_ARG_WITH(gtk2, AC_HELP_STRING([--with-gtk2], [use GTK+ 2.0 default=yes]),

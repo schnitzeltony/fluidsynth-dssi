@@ -85,10 +85,6 @@ struct _fsd_instance_t {
     fsd_sfont_t    *soundfont;
     LADSPA_Data    *output_l;
     LADSPA_Data    *output_r;
-#ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-    LADSPA_Data    *tmpbuf_l;
-    LADSPA_Data    *tmpbuf_r;
-#endif
 };
 
 struct _fsd_sfont_t {
@@ -104,18 +100,12 @@ struct _fsd_synth_t {
     pthread_mutex_t   mutex;
     int               mutex_grab_failed;
     unsigned long     instance_count;
-#ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-    unsigned long     fluid_bufsize;
-    unsigned long     burst_remains;
-#endif
     char             *project_directory;
     fluid_settings_t *fluid_settings;
     fluid_synth_t    *fluid_synth;
     fsd_sfont_t      *soundfonts;
     float             gain;
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     int               polyphony;
-#endif
     fsd_instance_t   *channel_map[FSD_CHANNEL_COUNT];
     LADSPA_Data       bit_bucket[FSD_MAX_BURST_SIZE];
     LADSPA_Data      *fx_buckets[2];

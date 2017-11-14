@@ -101,9 +101,7 @@ GtkWidget *main_window;
 GtkWidget *soundfont_label;
 GtkWidget *preset_clist;
 GtkObject *gain_adj;
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
 GtkObject *polyphony_adj;
-#endif
 GtkWidget *file_selection;
 GtkWidget *notice_window;
 GtkWidget *notice_label_1;
@@ -249,7 +247,6 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
 
         return 0;
 
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     } else if (!strcmp(&argv[0]->s, DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony")) {
 
         int new_poly = atol(&argv[1]->s);
@@ -266,7 +263,6 @@ osc_configure_handler(const char *path, const char *types, lo_arg **argv,
         internal_gui_update_only = 0;
 
         return 0;
-#endif
 
     } else if (!strcmp(&argv[0]->s, DSSI_PROJECT_DIRECTORY_KEY)) {
 
@@ -499,7 +495,6 @@ on_gain_slider_change(GtkWidget *widget, gpointer data)
             DSSI_GLOBAL_CONFIGURE_PREFIX "gain", buffer);
 }
 
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
 void
 on_polyphony_slider_change(GtkWidget *widget, gpointer data)
 {
@@ -517,7 +512,6 @@ on_polyphony_slider_change(GtkWidget *widget, gpointer data)
     lo_send(osc_host_address, osc_configure_path, "ss",
             DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony", buffer);
 }
-#endif
 
 void
 on_soundfont_combo_changed(GtkWidget *widget, gpointer data)
@@ -698,10 +692,8 @@ create_main_window (const char *tag)
   GtkWidget *label6;
   GtkWidget *label7;
   GtkWidget *gain_scale;
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
   GtkWidget *polyphony_label;
   GtkWidget *polyphony_scale;
-#endif
   GtkWidget *key_scale;
   GtkWidget *velocity_scale;
   GtkWidget *frame6;
@@ -858,9 +850,9 @@ create_main_window (const char *tag)
                     (GtkAttachOptions) (GTK_FILL), 0, 0);
   gtk_scale_set_value_pos (GTK_SCALE (gain_scale), GTK_POS_RIGHT);
   gtk_scale_set_digits (GTK_SCALE (gain_scale), 0);
+
     gtk_range_set_update_policy (GTK_RANGE (gain_scale), GTK_UPDATE_DELAYED);
 
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     polyphony_label = gtk_label_new ("polyphony");
     gtk_widget_ref (polyphony_label);
     gtk_object_set_data_full (GTK_OBJECT (main_window), "polyphony_label", polyphony_label,
@@ -884,7 +876,6 @@ create_main_window (const char *tag)
     gtk_scale_set_value_pos (GTK_SCALE (polyphony_scale), GTK_POS_RIGHT);
     gtk_scale_set_digits (GTK_SCALE (polyphony_scale), 0);
     gtk_range_set_update_policy (GTK_RANGE (polyphony_scale), GTK_UPDATE_DELAYED);
-#endif
 
   frame5 = gtk_frame_new ("Test Note");
   gtk_widget_ref (frame5);
@@ -992,11 +983,9 @@ create_main_window (const char *tag)
     gtk_signal_connect (GTK_OBJECT(gain_adj), "value_changed",
                         GTK_SIGNAL_FUNC(on_gain_slider_change),
                         NULL);
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     gtk_signal_connect (GTK_OBJECT(polyphony_adj), "value_changed",
                         GTK_SIGNAL_FUNC(on_polyphony_slider_change),
                         NULL);
-#endif
 
     /* connect soundfont combo widget */
     gtk_signal_connect(GTK_OBJECT(GTK_COMBO(choose_soundfont_combo)->popwin), "hide",

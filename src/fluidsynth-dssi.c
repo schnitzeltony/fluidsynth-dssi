@@ -111,9 +111,6 @@ fsd_mutex_trylock(void)
     /* Attempt the mutex lock */
     rc = pthread_mutex_trylock(&fsd_synth.mutex);
     if (rc) {
-#ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-        fsd_synth.burst_remains = 0;
-#endif
         fsd_synth.mutex_grab_failed = 1;
         return rc;
     }
@@ -301,12 +298,8 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.midi-channels", FSD_CHANNEL_COUNT);
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-channels", FSD_CHANNEL_COUNT);
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-groups", FSD_CHANNEL_COUNT);
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
         fsd_synth.polyphony = FSD_MAX_POLYPHONY;
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", fsd_synth.polyphony);
-#else
-        fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", FSD_DEFAULT_POLYPHONY);
-#endif
         fluid_settings_setstr(fsd_synth.fluid_settings, "synth.reverb.active", "no");
         fluid_settings_setstr(fsd_synth.fluid_settings, "synth.chorus.active", "no");
 
@@ -319,10 +312,6 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
 
         /* other module-wide initialization */
         fsd_synth.project_directory = NULL;
-#ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-        fsd_synth.fluid_bufsize = fluid_synth_get_internal_bufsize(fsd_synth.fluid_synth);
-        fsd_synth.burst_remains = 0;
-#endif
         fsd_synth.gain = -1.0f;
         fsd_synth.fx_buckets[0] = fsd_synth.bit_bucket;
         fsd_synth.fx_buckets[1] = fsd_synth.bit_bucket;
@@ -342,23 +331,6 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
             break;
         }
     }
-
-#ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-    instance->tmpbuf_l = (LADSPA_Data *)malloc(fsd_synth.fluid_bufsize *
-                                               sizeof(LADSPA_Data));
-    if (!instance->tmpbuf_l) {
-        fsd_synth.instance_count++;
-        fsd_cleanup(instance);
-        return NULL;
-    }
-    instance->tmpbuf_r = (LADSPA_Data *)malloc(fsd_synth.fluid_bufsize *
-                                               sizeof(LADSPA_Data));
-    if (!instance->tmpbuf_r) {
-        fsd_synth.instance_count++;
-        fsd_cleanup(instance);
-        return NULL;
-    }
-#endif
 
     instance->pending_preset_change = -1;
     instance->soundfont = NULL;
@@ -452,16 +424,6 @@ fsd_cleanup(LADSPA_Handle handle)
         /* free the channel */
         fsd_synth.channel_map[instance->channel] = NULL;
 
-#ifndef NWRITE_FLOAT_WORKS_CORRECTLY
-        if (instance->tmpbuf_l) {
-            free(instance->tmpbuf_l);
-            instance->tmpbuf_l = NULL;
-        }
-        if (instance->tmpbuf_r) {
-            free(instance->tmpbuf_r);
-            instance->tmpbuf_r = NULL;
-        }
-#endif
     }
 
     /* if there are no more instances, take down FluidSynth */
@@ -592,7 +554,6 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
         
         return NULL;
 
-#ifdef USE_AUGMENTED_FLUIDSYNTH_API
     } else if (!strcmp(key, DSSI_GLOBAL_CONFIGURE_PREFIX "polyphony")) {
 
         float new_polyphony = atol(value);
@@ -613,7 +574,6 @@ fsd_configure(LADSPA_Handle handle, const char *key, const char *value)
         fsd_synth.polyphony = new_polyphony;
         
         return NULL;
-#endif
 
     } else if (!strcmp(key, DSSI_PROJECT_DIRECTORY_KEY)) {
 
@@ -845,7 +805,6 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
         r_outputs[i] = fsd_synth.bit_bucket;
     }
 
-#ifdef NWRITE_FLOAT_WORKS_CORRECTLY
     /* fluid_synth_nwrite_float() works correctly in FluidSynth beginning
      * with CVS as of 2005/6/7 (and I would assume releases > 1.0.5).
      * So here we can just have it write our output buffers directly,
@@ -892,132 +851,6 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
         samples_done += burst_size;
     }
 
-#else /* fluid_synth_nwrite_float() doesn't work correctly */
-
-    /* Because fluid_synth_nwrite_float() doesn't work correctly in FluidSynth
-     * versions <= 1.0.5 (including CVS before 2005/6/7) for block lengths less
-     * than FLUID_BUFSIZE (64), we have to always call it with block lengths
-     * that are multiples of 64, buffering any odd block remains for the next
-     * run_multiple_synths() call ourself.
-     * (Note that if the block length is _always_ 32, the bug is not triggered,
-     * luckily, simply because 64 - 32 = 32 (see the code)). */
-
-    /* First, if there is any data remaining from a previous render burst,
-     * copy it from our temporary buffers. */
-    if (fsd_synth.burst_remains) {
-        unsigned long burst_copy = (fsd_synth.burst_remains > sample_count) ?
-                                       sample_count : fsd_synth.burst_remains;
-        unsigned long burst_offset = fsd_synth.fluid_bufsize - fsd_synth.burst_remains;
-
-        for (i = 0; i < instance_count; i++) {
-            memcpy(instances[i]->output_l,
-                   instances[i]->tmpbuf_l + burst_offset,
-                   burst_copy * sizeof(LADSPA_Data));
-            memcpy(instances[i]->output_r,
-                   instances[i]->tmpbuf_r + burst_offset,
-                   burst_copy * sizeof(LADSPA_Data));
-        }
-        samples_done += burst_copy;
-        fsd_synth.burst_remains -= burst_copy;
-    }
-
-    /* Next, write as many full render bursts as possible into the output
-     * buffers, processing ready events as we go. */
-    next_pending_event_tick = 0;
-    while (samples_done + fsd_synth.fluid_bufsize <= sample_count) {
-        unsigned long burst_size;
-
-        /* process any ready events */
-        while (next_pending_event_tick <= samples_done) {
-            this_pending_event_tick = next_pending_event_tick;
-            next_pending_event_tick = sample_count;
-            for (i = 0; i < instance_count; i++) {
-                while (event_index[i] < event_count[i]
-                       && events[i][event_index[i]].time.tick == this_pending_event_tick) {
-                     fsd_handle_event(instances[i], &events[i][event_index[i]]);
-                     event_index[i]++;
-                }
-                if (event_index[i] < event_count[i]
-                    && events[i][event_index[i]].time.tick < next_pending_event_tick) {
-                    next_pending_event_tick = events[i][event_index[i]].time.tick;
-                }
-            }
-        }
-
-        /* render the burst */
-        burst_size = next_pending_event_tick - samples_done;
-        burst_size = (burst_size + fsd_synth.fluid_bufsize - 1) &
-                         ~(fsd_synth.fluid_bufsize - 1);   /* round up to nearest whole bufsize */
-        if (burst_size > sample_count - samples_done)      /* don't overshoot sample_count */
-            burst_size -= fsd_synth.fluid_bufsize;
-        if (burst_size == 0)                               /* leave loop if too close to end */
-            break;
-        if (burst_size > FSD_MAX_BURST_SIZE)
-            burst_size = FSD_MAX_BURST_SIZE;
-        
-        for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
-            if (fsd_synth.channel_map[i]) {
-                fsd_instance_t *instance = fsd_synth.channel_map[i];
-                l_outputs[instance->channel] = instance->output_l + samples_done;
-                r_outputs[instance->channel] = instance->output_r + samples_done;
-            }
-        }
-
-        fluid_synth_nwrite_float(fsd_synth.fluid_synth, burst_size,
-                                 l_outputs, r_outputs,
-                                 fsd_synth.fx_buckets, fsd_synth.fx_buckets);
-
-        samples_done += burst_size;
-    }
-
-    /* Third, process any remaining events. */
-    while (next_pending_event_tick < sample_count) {
-        this_pending_event_tick = next_pending_event_tick;
-        next_pending_event_tick = sample_count;
-        for (i = 0; i < instance_count; i++) {
-            while (event_index[i] < event_count[i]
-                   && events[i][event_index[i]].time.tick == this_pending_event_tick) {
-                 fsd_handle_event(instances[i], &events[i][event_index[i]]);
-                 event_index[i]++;
-            }
-            if (event_index[i] < event_count[i]
-                && events[i][event_index[i]].time.tick < next_pending_event_tick) {
-                next_pending_event_tick = events[i][event_index[i]].time.tick;
-            }
-        }
-    }
-
-    /* Finally, if we're still short on samples, render one more block, then
-     * copy enough data to finish this run */
-    if (samples_done < sample_count) {
-        unsigned long samples_remaining = (sample_count - samples_done);
-
-        /* render one burst */
-        for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
-            if (fsd_synth.channel_map[i]) {
-                fsd_instance_t *instance = fsd_synth.channel_map[i];
-                l_outputs[instance->channel] = instance->tmpbuf_l;
-                r_outputs[instance->channel] = instance->tmpbuf_r;
-            }
-        }
-
-        fluid_synth_nwrite_float(fsd_synth.fluid_synth, fsd_synth.fluid_bufsize,
-                                 l_outputs, r_outputs,
-                                 fsd_synth.fx_buckets, fsd_synth.fx_buckets);
-
-        /* copy rendered data to output buffers */
-        for (i = 0; i < instance_count; i++) {
-            memcpy(instances[i]->output_l + samples_done,
-                   instances[i]->tmpbuf_l,
-                   samples_remaining * sizeof(LADSPA_Data));
-            memcpy(instances[i]->output_r + samples_done,
-                   instances[i]->tmpbuf_r,
-                   samples_remaining * sizeof(LADSPA_Data));
-        }
-
-        fsd_synth.burst_remains = fsd_synth.fluid_bufsize - samples_remaining;
-    }
-#endif /* NWRITE_FLOAT_WORKS_CORRECTLY */
 
 #ifdef DEBUG_AUDIO
 /* add a 'buzz' to output so there's something audible even when quiescent */
