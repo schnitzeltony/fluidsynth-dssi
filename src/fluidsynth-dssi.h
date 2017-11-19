@@ -53,7 +53,7 @@
  * two buffers every process cycle, so it's best to set FSD_CHANNEL_COUNT
  * to no more than the maximum number of simultaneous FluidSynth-DSSI
  * instances you'll need. */
-#define FSD_CHANNEL_COUNT  16
+#define FSD_CHANNEL_COUNT  32
 
 /* -FIX- These should be in a header file shared with FluidSynth-DSSI_gtk.c: */
 #define FSD_MAX_POLYPHONY     256

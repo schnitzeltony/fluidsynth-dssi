@@ -89,7 +89,7 @@ aren't particularly helpful, so try this instead:
     CFLAGS for you if you don't include any '-Wall' or '-O' options.
 
 4. If you wish to change the maximum number of simultaneous
-    instances supported by FluidSynth-DSSI (currently 16), edit the
+    instances supported by FluidSynth-DSSI (currently 32), edit the
     file src/fluidsynth-dssi.h and change the FSD_CHANNEL_COUNT
     definition.
 
