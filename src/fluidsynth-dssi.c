@@ -36,6 +36,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 
+#include <glib.h>
 #include <ladspa.h>
 #include <dssi.h>
 
@@ -51,6 +52,12 @@ static LADSPA_Descriptor  *fsd_LADSPA_descriptor = NULL;
 static DSSI_Descriptor    *fsd_DSSI_descriptor = NULL;
 
 static fsd_synth_t         fsd_synth;
+
+static fsd_settings_t      fsd_settings;
+
+static LADSPA_Data **l_outputs = NULL;
+static LADSPA_Data **r_outputs = NULL;
+
 
 struct fsd_port_descriptor fsd_port_description[FSD_PORTS_COUNT] = {
 #define PD_OUT     (LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO)
@@ -95,7 +102,7 @@ fsd_all_voices_off(void)
 {
     int i;
 
-    for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
+    for (i = 0; i < fsd_settings.channel_count; i++) {
         fsd_chan_all_voices_off(i);
     }
 }
@@ -276,10 +283,14 @@ static LADSPA_Handle
 fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
 {
     fsd_instance_t *instance;
-    int i;
+    int i, configval;
+    gchar *configdirname, *configfilename;
+    GKeyFile *key_file;
 
-    /* refuse another instantiation if we've reached out limit */
-    if (fsd_synth.instance_count == FSD_CHANNEL_COUNT) {
+    /* fsd_settings.channel_count unset on forst call */
+    if (fsd_synth.instance_count != 0 &&
+            /* refuse another instantiation if we've reached out limit */
+            fsd_synth.instance_count == fsd_settings.channel_count) {
         return NULL;
     }
 
@@ -292,11 +303,54 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
             return NULL;
         }
 
+        /* configfile settings defaults */
+        fsd_settings.channel_count = FSD_CHANNEL_COUNT_DEFAULT;
+        fluid_settings_getint(fsd_synth.fluid_settings, "audio.realtime-prio", &fsd_settings.realtime_prio);
+        fluid_settings_getint(fsd_synth.fluid_settings, "synth.cpu-cores", &fsd_settings.thread_count);
+
+        configdirname = g_build_filename(g_get_user_config_dir(), "fluidsynth-dssi", NULL);
+        configfilename = g_build_filename(configdirname, "fluidsynth-dssi.conf", NULL);
+        key_file = g_key_file_new();
+        /* No config file yet: create one with defaults */
+        if (!g_key_file_load_from_file(
+                key_file,
+                configfilename,
+                G_KEY_FILE_KEEP_COMMENTS | G_KEY_FILE_KEEP_TRANSLATIONS,
+            NULL)) {
+            g_key_file_set_integer(key_file, "audio", "realtime-prio", fsd_settings.realtime_prio);
+            g_key_file_set_integer(key_file, "synth", "maxchannels", fsd_settings.channel_count);
+            g_key_file_set_integer(key_file, "synth", "parallel-threads", fsd_settings.thread_count);
+            g_mkdir_with_parents(configdirname, 0700);
+            g_key_file_save_to_file(key_file, configfilename, NULL);
+        /* config file available: get settings */
+        } else {
+            configval = g_key_file_get_integer(key_file, "audio", "realtime-prio", NULL);
+            if (configval > 0)
+                fsd_settings.realtime_prio = configval;
+            configval = g_key_file_get_integer(key_file, "synth", "maxchannels", NULL);
+            if (configval > 0)
+                fsd_settings.channel_count = configval;
+            configval = g_key_file_get_integer(key_file, "synth", "parallel-threads", NULL);
+            if (configval > 0)
+                fsd_settings.thread_count = configval;
+        }
+
+        g_key_file_free(key_file);
+        g_free(configfilename);
+        g_free(configdirname);
+
+        /* setup buffers from persitant settings */
+        fsd_synth.channel_map = (fsd_instance_t **)calloc(fsd_settings.channel_count, sizeof(fsd_instance_t *));
+        l_outputs = (LADSPA_Data **) calloc(fsd_settings.channel_count, sizeof(LADSPA_Data *));
+        r_outputs = (LADSPA_Data **) calloc(fsd_settings.channel_count, sizeof(LADSPA_Data *));
+
         /* set appropriate settings here */
         fluid_settings_setnum(fsd_synth.fluid_settings, "synth.sample-rate", sample_rate);
-        fluid_settings_setint(fsd_synth.fluid_settings, "synth.midi-channels", FSD_CHANNEL_COUNT);
-        fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-channels", FSD_CHANNEL_COUNT);
-        fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-groups", FSD_CHANNEL_COUNT);
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.midi-channels", fsd_settings.channel_count);
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-channels", fsd_settings.channel_count);
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-groups", fsd_settings.channel_count);
+        fluid_settings_setint(fsd_synth.fluid_settings, "audio.realtime-prio", fsd_settings.realtime_prio);
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.cpu-cores", fsd_settings.thread_count);
         fsd_synth.polyphony = FSD_MAX_POLYPHONY;
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", fsd_synth.polyphony);
         fluid_settings_setstr(fsd_synth.fluid_settings, "synth.reverb.active", "no");
@@ -323,7 +377,7 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         return NULL;
     }
     /* find a free channel */
-    for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
+    for (i = 0; i < fsd_settings.channel_count; i++) {
         if (fsd_synth.channel_map[i] == NULL) {
             fsd_synth.channel_map[i] = instance;
             instance->channel = i;
@@ -439,6 +493,12 @@ fsd_cleanup(LADSPA_Handle handle)
         delete_fluid_settings(fsd_synth.fluid_settings);
         fsd_synth.fluid_synth = NULL;
         fsd_synth.fluid_settings = NULL;
+        free(fsd_synth.channel_map);
+        fsd_synth.channel_map = NULL;
+        free(l_outputs);
+        l_outputs = NULL;
+        free(r_outputs);
+        r_outputs = NULL;
     }
     free(instance);
 }
@@ -777,8 +837,6 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
     fsd_instance_t **instances = (fsd_instance_t **)handles;
     unsigned long samples_done = 0;
     unsigned long event_index[instance_count];
-    static LADSPA_Data *l_outputs[FSD_CHANNEL_COUNT];
-    static LADSPA_Data *r_outputs[FSD_CHANNEL_COUNT];
     unsigned long this_pending_event_tick;
     unsigned long next_pending_event_tick;
     int i;
@@ -799,7 +857,7 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
             instances[i]->pending_preset_change = -1;
         }
     }
-    for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
+    for (i = 0; i < fsd_settings.channel_count; i++) {
         l_outputs[i] = fsd_synth.bit_bucket;
         r_outputs[i] = fsd_synth.bit_bucket;
     }
@@ -835,7 +893,7 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
         if (burst_size > FSD_MAX_BURST_SIZE)
             burst_size = FSD_MAX_BURST_SIZE;
         
-        for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
+        for (i = 0; i < fsd_settings.channel_count; i++) {
             if (fsd_synth.channel_map[i]) {
                 fsd_instance_t *instance = fsd_synth.channel_map[i];
                 l_outputs[instance->channel] = instance->output_l + samples_done;
@@ -906,9 +964,6 @@ void _init()
     pthread_mutex_init(&fsd_synth.mutex, NULL);
     fsd_synth.mutex_grab_failed = 0;
     fsd_synth.soundfonts = NULL;
-    for (i = 0; i < FSD_CHANNEL_COUNT; i++) {
-        fsd_synth.channel_map[i] = NULL;
-    }
 
     fsd_LADSPA_descriptor =
         (LADSPA_Descriptor *) malloc(sizeof(LADSPA_Descriptor));

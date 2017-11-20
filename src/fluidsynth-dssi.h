@@ -47,13 +47,13 @@
 
 #define FSD_MAX_CHANNELS  255  /* FluidSynth's virtual channel limit (n.b. NO_CHANNEL in fluid_voice.h) */
 
-/* FSD_CHANNEL_COUNT is the number of channels FluidSynth-DSSI tells
+/* FSD_CHANNEL_COUNT_DEFAULT is the number of channels FluidSynth-DSSI tells
  * libfluidsynth to create at startup.  It can be up to FSD_MAX_CHANNELS,
  * but be aware that for each channel, libfluidsynth will zero and copy out
  * two buffers every process cycle, so it's best to set FSD_CHANNEL_COUNT
  * to no more than the maximum number of simultaneous FluidSynth-DSSI
  * instances you'll need. */
-#define FSD_CHANNEL_COUNT  32
+#define FSD_CHANNEL_COUNT_DEFAULT  32
 
 /* -FIX- These should be in a header file shared with FluidSynth-DSSI_gtk.c: */
 #define FSD_MAX_POLYPHONY     256
@@ -75,9 +75,16 @@ struct fsd_port_descriptor {
     LADSPA_Data                    upper_bound;
 };
 
+typedef struct _fsd_settings_t fsd_settings_t;
 typedef struct _fsd_instance_t fsd_instance_t;
 typedef struct _fsd_sfont_t fsd_sfont_t;
 typedef struct _fsd_synth_t fsd_synth_t;
+
+struct _fsd_settings_t {
+    int channel_count;
+    int thread_count;
+    int realtime_prio;
+};
 
 struct _fsd_instance_t {
     int             channel;
@@ -106,7 +113,7 @@ struct _fsd_synth_t {
     fsd_sfont_t      *soundfonts;
     float             gain;
     int               polyphony;
-    fsd_instance_t   *channel_map[FSD_CHANNEL_COUNT];
+    fsd_instance_t   **channel_map;
     LADSPA_Data       bit_bucket[FSD_MAX_BURST_SIZE];
     LADSPA_Data      *fx_buckets[2];
 };
