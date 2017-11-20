@@ -302,6 +302,9 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", fsd_synth.polyphony);
         fluid_settings_setstr(fsd_synth.fluid_settings, "synth.reverb.active", "no");
         fluid_settings_setstr(fsd_synth.fluid_settings, "synth.chorus.active", "no");
+        /* multithreading */
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.cpu-cores", 4);
+        fluid_settings_setint(fsd_synth.fluid_settings, "audio.realtime-prio", 90);
 
         /* initialize the FluidSynth engine */
         if (!fsd_synth.fluid_synth &&
