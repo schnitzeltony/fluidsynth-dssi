@@ -23,9 +23,8 @@
  * Boston, MA 02110-1301 USA.
  */
 
-#define _BSD_SOURCE    1
-#define _SVID_SOURCE   1
-#define _ISOC99_SOURCE 1
+#define _DEFAULT_SOURCE 1
+#define _ISOC99_SOURCE  1
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
