@@ -31,11 +31,11 @@ fluidsynth_dssi_la_SOURCES = \
 	fluidsynth-dssi.h \
 	locate_soundfont.c
 
-fluidsynth_dssi_la_CFLAGS = @FLUID_CFLAGS@
+fluidsynth_dssi_la_CFLAGS = @GLIB_CFLAGS@ @FLUID_CFLAGS@
 
 fluidsynth_dssi_la_LDFLAGS = -module -avoid-version
 
-fluidsynth_dssi_la_LIBADD = -lm @FLUID_LIBS@
+fluidsynth_dssi_la_LIBADD = -lm @GLIB_LIBS@ @FLUID_LIBS@
 
 # create symlinks for the plugin to jack-dssi-host
 install-exec-hook:

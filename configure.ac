@@ -21,6 +21,11 @@ PKG_CHECK_MODULES(FLUID, fluidsynth >= 1.1.6)
 AC_SUBST(FLUID_CFLAGS)
 AC_SUBST(FLUID_LIBS)
 
+dnl Check for glib
+PKG_CHECK_MODULES(GLIB, glib-2.0 >= 2.40)
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
+
 dnl Check for GTK+
 AC_ARG_WITH(gtk2, AC_HELP_STRING([--with-gtk2], [use GTK+ 2.0 default=yes]),
             [ if test $withval = "yes"; then try_gtk2=yes ;
