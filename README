@@ -163,21 +163,3 @@ Example
 
     $ pmidi -p128:0 /t/smf/simpsons_theme.mid
 
-Bugs in FluidSynth prior to version 1.0.6
-=========================================
-FluidSynth versions up through 1.0.5 have a bug in the
-fluid_synth_nwrite_float() function that FluidSynth-DSSI uses, which
-prevents it from working correctly with block sizes less than 64.
-FluidSynth-DSSI will still work with these earlier versions, but
-working around the bug requires an extra buffer copy per process
-cycle, so it is not as efficient as when FluidSynth versions 1.0.6
-or later are used.
-
-FluidSynth versions up through 1.0.5 have a bug in the code enabled
-by the '--enable-longlong' configure option, so that it will only
-work correctly on little-endian (e.g. x86) systems. It is
-recommended that users of big-endian (e.g. PowerPC) systems upgrade
-to 1.0.6 or later. (FluidSynth 1.0.8 no longer has the
-'--enable-longlong' configure option, and uses the long long type by
-default.)
-
