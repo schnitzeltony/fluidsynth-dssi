@@ -675,18 +675,20 @@ fsd_sfload_file (const char * fname)
     rewind (fd);
 
   if (!err && !load_body (fsize, sf, fd))
-    err = TRUE;			/* load the sfont */
+    {
+      err = TRUE;			/* load the sfont */
 
-    /* ==== fsd addition: since we're not loaded the sample data, we don't need
-     * to keep the file open. */
-    fclose(fd);
-    sf->sffd = NULL;
-    /* ==== end fsd addition. */
+      /* ==== fsd addition: since we're not loaded the sample data, we don't need
+       * to keep the file open. */
+      fclose(fd);
+      sf->sffd = NULL;
+      /* ==== end fsd addition. */
+    }
 
   if (err)
     {
       if (sf)
-	sfont_close (sf);
+        sfont_close (sf);
       return (NULL);
     }
 
