@@ -616,7 +616,7 @@ rebuild_preset_clist(SFData *sfdata)
 {
     fluid_list_t *p;
     SFPreset *sfpreset;
-    char bank[6], program[4], name[31];
+    char bank[6], program[6], name[31];
     char *data[3] = { bank, program, name };
     unsigned long i;
 
@@ -654,7 +654,7 @@ rebuild_preset_clist(SFData *sfdata)
     for (i = 0; i < preset_count; i++) {
         sfpreset = presets_by_row[i];
         snprintf(bank, 6, "%d", sfpreset->bank);
-        snprintf(program, 4, "%d", sfpreset->prenum);
+        snprintf(program, 6, "%d", sfpreset->prenum);
         if (sfpreset->name && strlen(sfpreset->name) > 0) {
             strncpy(name, sfpreset->name, 31);
         } else {
