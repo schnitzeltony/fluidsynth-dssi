@@ -283,20 +283,15 @@ osc_control_handler(const char *path, const char *types, lo_arg **argv,
                   int argc, lo_message msg, void *user_data)
 {
     /* though for now, we have no controls to handle.... */
-    int port;
-    float value;
-
     if (argc < 2) {
         DEBUG_DSSI("fsd-gui error: too few arguments to osc_control_handler\n");
         return 1;
     }
 
-    port = argv[0]->i;
-    value = argv[1]->f;
+    /* argv[0]: port / argv[1] value */
+    DEBUG_DSSI("fsd-gui osc_control_handler: (bogus) control %d now %f\n", argv[0]->i, argv[1]->f);
 
-    DEBUG_DSSI("fsd-gui osc_control_handler: (bogus) control %d now %f\n", port, value);
-
-    /* update_voice_widget(port, value); */
+    /* update_voice_widget(argv[0]->i, argv[1]->f); */
 
     return 0;
 }
