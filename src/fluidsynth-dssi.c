@@ -302,7 +302,7 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
     gchar *configdirname, *configfilename;
     GKeyFile *key_file;
 
-    /* fsd_settings.channel_count unset on forst call */
+    /* fsd_settings.channel_count unset on first call */
     if (fsd_synth.instance_count != 0 &&
             /* refuse another instantiation if we've reached out limit */
             fsd_synth.instance_count == fsd_settings.channel_count) {
@@ -322,7 +322,9 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         fsd_settings.channel_count = FSD_CHANNEL_COUNT_DEFAULT;
         fluid_settings_getint(fsd_synth.fluid_settings, "audio.realtime-prio", &fsd_settings.realtime_prio);
         fluid_settings_getint(fsd_synth.fluid_settings, "synth.cpu-cores", &fsd_settings.thread_count);
-
+#if FLUIDSYNTH_VERSION_MAJOR >= 2
+        fluid_settings_getint(fsd_synth.fluid_settings, "synth.dynamic-sample-loading", &fsd_settings.dynamic_sample_loading);
+#endif
         configdirname = g_build_filename(g_get_user_config_dir(), "fluidsynth-dssi", NULL);
         configfilename = g_build_filename(configdirname, "fluidsynth-dssi.conf", NULL);
         key_file = g_key_file_new();
@@ -335,6 +337,9 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
             g_key_file_set_integer(key_file, "audio", "realtime-prio", fsd_settings.realtime_prio);
             g_key_file_set_integer(key_file, "synth", "maxchannels", fsd_settings.channel_count);
             g_key_file_set_integer(key_file, "synth", "parallel-threads", fsd_settings.thread_count);
+#if FLUIDSYNTH_VERSION_MAJOR >= 2
+            g_key_file_set_integer(key_file, "synth", "dynamic-sample-loading", fsd_settings.dynamic_sample_loading);
+#endif
             g_mkdir_with_parents(configdirname, 0700);
             g_key_file_save_to_file(key_file, configfilename, NULL);
         /* config file available: get settings */
@@ -348,6 +353,11 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
             configval = g_key_file_get_integer(key_file, "synth", "parallel-threads", NULL);
             if (configval > 0)
                 fsd_settings.thread_count = configval;
+#if FLUIDSYNTH_VERSION_MAJOR >= 2
+            configval = g_key_file_get_integer(key_file, "synth", "dynamic-sample-loading", NULL);
+            if (configval > 0)
+                fsd_settings.dynamic_sample_loading = configval;
+#endif
         }
 
         g_key_file_free(key_file);
@@ -366,6 +376,9 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.audio-groups", fsd_settings.channel_count);
         fluid_settings_setint(fsd_synth.fluid_settings, "audio.realtime-prio", fsd_settings.realtime_prio);
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.cpu-cores", fsd_settings.thread_count);
+#if FLUIDSYNTH_VERSION_MAJOR >= 2
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.dynamic-sample-loading", fsd_settings.dynamic_sample_loading);
+#endif
         fsd_synth.polyphony = FSD_MAX_POLYPHONY;
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", fsd_synth.polyphony);
         fluid_settings_setstr(fsd_synth.fluid_settings, "synth.reverb.active", "no");

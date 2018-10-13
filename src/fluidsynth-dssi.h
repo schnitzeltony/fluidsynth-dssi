@@ -84,6 +84,9 @@ struct _fsd_settings_t {
     int channel_count;
     int thread_count;
     int realtime_prio;
+#if FLUIDSYNTH_VERSION_MAJOR >= 2
+    int dynamic_sample_loading;
+#endif
 };
 
 struct _fsd_instance_t {
