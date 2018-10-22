@@ -883,6 +883,7 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
             instances[i]->pending_preset_change = -1;
         }
     }
+    /* Trash unmapped channels by default */
     for (i = 0; i < fsd_settings.channel_count; i++) {
         l_outputs[i] = fsd_synth.bit_bucket;
         r_outputs[i] = fsd_synth.bit_bucket;
@@ -892,6 +893,7 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
      * with CVS as of 2005/6/7 (and I would assume releases > 1.0.5).
      * So here we can just have it write our output buffers directly,
      * without the extra copy. */
+    /* AArgh and in FluidSynth 2.0.1 it is marked as deprecated... */
 
     next_pending_event_tick = 0;
     while (samples_done < sample_count) {
