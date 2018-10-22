@@ -394,8 +394,6 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
         /* other module-wide initialization */
         fsd_synth.project_directory = NULL;
         fsd_synth.gain = -1.0f;
-        fsd_synth.fx_buckets[0] = fsd_synth.bit_bucket;
-        fsd_synth.fx_buckets[1] = fsd_synth.bit_bucket;
     }
 
     instance = (fsd_instance_t *)calloc(1, sizeof(fsd_instance_t));
@@ -931,7 +929,7 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
 
         fluid_synth_nwrite_float(fsd_synth.fluid_synth, burst_size,
                                  l_outputs, r_outputs,
-                                 fsd_synth.fx_buckets, fsd_synth.fx_buckets);
+                                 NULL, NULL);
 
         samples_done += burst_size;
     }

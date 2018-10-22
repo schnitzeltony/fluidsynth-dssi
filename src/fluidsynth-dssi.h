@@ -118,7 +118,6 @@ struct _fsd_synth_t {
     int               polyphony;
     fsd_instance_t   **channel_map;
     LADSPA_Data       bit_bucket[FSD_MAX_BURST_SIZE];
-    LADSPA_Data      *fx_buckets[2];
 };
 
 #endif /* _FLUIDSYNTH_DSSI_H */
