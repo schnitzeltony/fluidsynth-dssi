@@ -381,8 +381,8 @@ fsd_instantiate(const LADSPA_Descriptor *descriptor, unsigned long sample_rate)
 #endif
         fsd_synth.polyphony = FSD_MAX_POLYPHONY;
         fluid_settings_setint(fsd_synth.fluid_settings, "synth.polyphony", fsd_synth.polyphony);
-        fluid_settings_setstr(fsd_synth.fluid_settings, "synth.reverb.active", "no");
-        fluid_settings_setstr(fsd_synth.fluid_settings, "synth.chorus.active", "no");
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.reverb.active", 0);
+        fluid_settings_setint(fsd_synth.fluid_settings, "synth.chorus.active", 0);
 
         /* initialize the FluidSynth engine */
         if (!fsd_synth.fluid_synth &&
