@@ -58,12 +58,13 @@ You need to have the following installed:
     - pkgconfig with PKG_CONFIG_PATH set appropriately to pick up
         DSSI, liblo, and fluidsynth (plus libdssialsacompat if used).
 
-    - GTK+ version 1.2 or 2.x.  (If GTK+ is not found, the plugin
+    - glib-2.0 >= 2.40
+
+    - GTK+ version 2.x.  (If GTK+ is not found, the plugin
         will be built without the GUI.)
 
-    - a working DSSI host.  Xsynth-DSSI has been tested with
-        jack-dssi-host, available in the DSSI distribution, and with
-        ghostess, available at:
+    - a working DSSI host. Fluidsynth-DSSI has been tested with
+        qtractor found at https://github.com/rncbc/qtractor
 
         http://smbolton.com/linux.html
 

@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(FluidSynth-DSSI, 1.0.0, dssi-devel@lists.sourceforge.net)
+AC_INIT(FluidSynth-DSSI, 2.0.0, https://github.com/schnitzeltony/fluidsynth-dssi/issues)
 
 AC_CONFIG_SRCDIR(src/fluidsynth-dssi.c)
 AM_INIT_AUTOMAKE

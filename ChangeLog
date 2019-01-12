@@ -1,3 +1,18 @@
+20180124 FluidSynth-DSSI v2.0.0 release
+
+ * Add /usr/share/soundfonts to sf2 default paths
+ * Fixes for recent autotools
+ * Fixes for fluidsynth 2.x
+ * Add configuration file support for
+    * audio/realtime-prio: realtime priority for threads.
+    * synth/maxchannels: Maximum channels supported by fluidsynth-dssi
+    * parallel-threads: Number of parallel threads used for sound rendering
+    * dynamic-sample-loading: -> synth.dynamic-sample-loading
+ * Don't trash effects but set NULL to avoid useless copying within fluidsynth
+    to reduce CPU load
+ * Fix some gcc truncation warnings
+ * Set default max channels to 32
+
 20120324 CVS smbolton
  * Bug fix to fsd_cleanup() from Rui Nuno Capela, allowing eventual
      reinstantiation of FluidSynth (sf.net Tracker ID 1990241).
