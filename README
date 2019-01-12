@@ -66,8 +66,6 @@ You need to have the following installed:
     - a working DSSI host. Fluidsynth-DSSI has been tested with
         qtractor found at https://github.com/rncbc/qtractor
 
-        http://smbolton.com/linux.html
-
     - automake 1.7 and autoconf 2.59 or better if you wish to
         recreate the build files.
 
@@ -111,8 +109,7 @@ Feedback on your experiences building FluidSynth-DSSI is appreciated.
 Operation
 =========
 Start your DSSI host and create an instance of the FluidSynth-DSSI
-plugin.  See the 'Example' section below for how to do this with
-jack-dssi-host.
+plugin.
 
 Initially, no soundfont will be loaded.  Use the 'Select Soundfont'
 button to select a soundfont. Each instance may use only one
@@ -141,26 +138,3 @@ When you create more than one instance of the plugin, you should be
 able to tell their GUIs apart by unique window titles of each
 (provided your host correctly supplies each with the proper
 identifier.)
-
-Example
-=======
-1. Start JACK.
-
-2. Run jack-dssi-host, starting 16 FluidSynth-DSSI instances, one
-    for each MIDI channel:
-
-    $ DSSI_PATH=/usr/local/lib/dssi sudo jack-dssi-host -16 fluidsynth-dssi.so
-
-3. Load a soundfont for each instance.  You may do this using the
-    GUI, or via the command line (replace the '19383' with the port
-    number your DSSI host is using):
-
-    $ for ee in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
-    > do dssi_osc_send -C osc.udp://localhost:19383/dssi/fluidsynth-dssi/FluidSynth-DSSI/chan$ee \
-    >      load /t/soundfonts/Reality_GMGS.sf2
-    > done
-
-4. Make some noise:
-
-    $ pmidi -p128:0 /t/smf/simpsons_theme.mid
-
