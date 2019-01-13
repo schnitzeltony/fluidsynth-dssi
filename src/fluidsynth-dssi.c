@@ -883,10 +883,10 @@ fsd_run_multiple_synths(unsigned long instance_count, LADSPA_Handle *handles,
             instances[i]->pending_preset_change = -1;
         }
     }
-    /* Trash unmapped channels by default */
+    /* Default: Set unused by default */
     for (i = 0; i < fsd_settings.channel_count; i++) {
-        l_outputs[i] = fsd_synth.bit_bucket;
-        r_outputs[i] = fsd_synth.bit_bucket;
+        l_outputs[i] = NULL;
+        r_outputs[i] = NULL;
     }
 
     /* fluid_synth_nwrite_float() works correctly in FluidSynth beginning

@@ -117,7 +117,6 @@ struct _fsd_synth_t {
     float             gain;
     int               polyphony;
     fsd_instance_t   **channel_map;
-    LADSPA_Data       bit_bucket[FSD_MAX_BURST_SIZE];
 };
 
 #endif /* _FLUIDSYNTH_DSSI_H */
