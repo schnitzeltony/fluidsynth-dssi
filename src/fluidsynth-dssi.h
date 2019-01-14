@@ -59,7 +59,7 @@
 #define FSD_MAX_POLYPHONY     256
 #define FSD_DEFAULT_POLYPHONY 256
 
-#define FSD_MAX_BURST_SIZE  512
+#define FSD_MAX_BURST_SIZE  128
 
 typedef enum {
     PORT_OUTPUT_LEFT     = 0,
